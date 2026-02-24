@@ -34,7 +34,7 @@ def health_check():
 @app.get("/team")
 def team_info():
     return {
-        "team": "cloud-team-XX",
+        "team": "Bismillah_A",
         "members": [
             # TODO: Isi dengan data tim Anda
             {"name": "Aditya Laksamana P Butar Butar", "nim": "10231006", "role": "Lead Backend"},
