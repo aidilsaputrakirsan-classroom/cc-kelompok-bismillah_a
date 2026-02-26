@@ -1,21 +1,3 @@
-## Tugas: Buat README.md yang Lengkap & Endpoint /team
-
-### Deskripsi
-
-Setiap tim membuat file `README.md` yang menjelaskan proyek. Ini akan menjadi "wajah" proyek Anda di GitHub dan terus di-update sepanjang semester.
-
-**Pembagian pengerjaan tugas:**
-
-| Bagian README                                                         | Dikerjakan oleh     | Juga mengerjakan                             |
-| --------------------------------------------------------------------- | ------------------- | -------------------------------------------- |
-| Deskripsi proyek & Architecture Overview                              | Lead Backend        | Update endpoint `/team` dengan data asli     |
-| Tech Stack & Getting Started                                          | Lead Frontend       | Pastikan instruksi running benar             |
-| Roadmap Milestone & Project Structure                                 | Lead DevOps         | Setup branch protection rules                |
-| Identitas Tim & Peer Review README                                    | Lead QA & Docs      | Review & finalisasi seluruh README           |
-| _(Jika 5 orang)_ Getting Started dipecah: Backend + Frontend terpisah | Lead CI/CD & Deploy | Tambahkan section "Deployment" (placeholder) |
-
-### Isi Wajib README.md
-
 # ☁️ Cloud App - Bismillah_A
 
 Deskripsi singkat aplikasi (1-2 paragraf): apa yang dilakukan,
