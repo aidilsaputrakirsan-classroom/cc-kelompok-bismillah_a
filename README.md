@@ -91,7 +91,7 @@ npm run dev
 
 ## Project Structure
 ```
-my-project/
+cc-kelompok-bismillah_a/
 ├── backend/
 │   ├── src/
 │   ├── .env
