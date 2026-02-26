@@ -1,9 +1,5 @@
 # ☁️ LAPORin ITK - Bismillah_A
 
-LAPORin ITK adalah aplikasi berbasis cloud yang berfungsi sebagai saluran resmi untuk menerima, mengelola, dan melacak status pelaporan berbagai insiden di kampus seperti kerusakan fasilitas, kehilangan barang, hingga kasus perundungan secara real-time dan terpusat dengan fitur opsi anonimitas. Aplikasi ini dirancang khusus untuk seluruh civitas akademika Institut Teknologi Kalimantan (ITK), yang mencakup mahasiswa, dosen, dan tenaga kependidikan sebagai pelapor, serta pihak berwenang kampus sebagai admin pengelola laporan.
-
-Kehadiran aplikasi ini menyelesaikan masalah keengganan melapor yang sering terjadi akibat birokrasi yang rumit atau ketakutan pelapor akan identitasnya yang terbongkar. Selain itu, sistem cloud pada LAPORin ITK memecahkan masalah manajemen data pelaporan yang tercecer atau tidak transparan, dengan memastikan setiap keluhan tersimpan aman di database dan status penanganannya (Menunggu, Diproses, Selesai) dapat dipantau secara langsung, menciptakan lingkungan kampus yang lebih aman dan responsif.
-
 ## 👥 Tim
 
 | Nama                           | NIM      | Peran          |
@@ -27,19 +23,7 @@ Kehadiran aplikasi ini menyelesaikan masalah keengganan melapor yang sering terj
 ## 🏗️ Architecture
 
 ```
-[Client / Civitas ITK]
-         |
-      (HTTPS)
-         |
-         v
- [React Frontend (Vite)] <---REST API---> [FastAPI Backend]
-                                            /           \
-                                       (SQL/ORM)     (API/SDK)
-                                          /               \
-                                         v                 v
-                                [PostgreSQL]         [Cloud Storage]
-                              (Data Laporan,       (Penyimpanan File
-                               Akun & Status)       Bukti Insiden)
+
 ```
 
 _(Diagram ini akan berkembang setiap minggu)_
