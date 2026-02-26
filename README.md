@@ -90,6 +90,7 @@ npm run dev
 | 15-16  | Final & UAS            | ⬜     |
 
 ## Project Structure
+```
 my-project/
 ├── backend/
 │   ├── src/
@@ -113,3 +114,4 @@ my-project/
 │   └── vite.config.js
 ├── .gitignore
 └── README.md
+```
