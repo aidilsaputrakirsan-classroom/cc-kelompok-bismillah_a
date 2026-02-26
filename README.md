@@ -8,9 +8,9 @@ untuk siapa, masalah apa yang diselesaikan.
 | Nama                           | NIM      | Peran          |
 | ------------------------------ | -------- | -------------- |
 | Aditya Laksamana P Butar Butar | 10231006 | Lead Backend   |
-| ...                            | ...      | Lead Frontend  |
-| ...                            | ...      | Lead DevOps    |
-| ...                            | ...      | Lead QA & Docs |
+| Firni Fauziah Ramadhini        | 10231038 | Lead Frontend  |
+| Muhammad Novri Aziztra         | 10231066 | Lead DevOps    |
+| Salsabila Putri Zahrani        | 10231086 | Lead QA & Docs |
 
 ## 🛠️ Tech Stack
 
