@@ -15,6 +15,7 @@ Kehadiran aplikasi ini menyelesaikan masalah keengganan melapor yang sering terj
 
 ## 🛠️ Tech Stack
 
+
 | Teknologi      | Fungsi           |
 | -------------- | ---------------- |
 | FastAPI        | Backend REST API |
@@ -23,6 +24,7 @@ Kehadiran aplikasi ini menyelesaikan masalah keengganan melapor yang sering terj
 | Docker         | Containerization |
 | GitHub Actions | CI/CD            |
 | Railway/Render | Cloud Deployment |
+| Python         | Backend REST API |
 
 ## 🏗️ Architecture
 
@@ -46,11 +48,16 @@ _(Diagram ini akan berkembang setiap minggu)_
 
 ## 🚀 Getting Started
 
+
 ### Prasyarat
 
-- Python 3.10+
-- Node.js 18+
-- Git
+- Python 3.11.x
+- FastAPI 0.110+
+- PostgreSQL 15.x
+- Node.js 20.x (LTS)
+- React 18.x
+- Docker 24.x
+- Docker Compose 2.x
 
 ### Backend
 
