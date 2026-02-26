@@ -88,3 +88,28 @@ npm run dev
 | 9-11   | CI/CD Pipeline         | ⬜     |
 | 12-14  | Microservices          | ⬜     |
 | 15-16  | Final & UAS            | ⬜     |
+
+## Project Structure
+my-project/
+├── backend/
+│   ├── src/
+│   ├── .env
+│   ├── package.json
+│   └── index.js
+├── frontend/
+│   ├── public/
+│   ├── src/
+│   │   ├── assets/
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   ├── pages/
+│   │   ├── services/
+│   │   ├── utils/
+│   │   ├── App.jsx
+│   │   └── main.jsx
+│   ├── .env
+│   ├── index.html
+│   ├── package.json
+│   └── vite.config.js
+├── .gitignore
+└── README.md
