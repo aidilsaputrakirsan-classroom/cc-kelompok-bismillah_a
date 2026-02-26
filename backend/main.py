@@ -36,7 +36,6 @@ def team_info():
     return {
         "team": "Bismillah_A",
         "members": [
-            # TODO: Isi dengan data tim Anda
             {"name": "Aditya Laksamana P Butar Butar", "nim": "10231006", "role": "Lead Backend"},
             {"name": "Firni Fauziah Ramadhini", "nim": "10231038", "role": "Lead Frontend"},
             {"name": "Muhammad Novri Aziztra", "nim": "10231066", "role": "Lead DevOps"},
