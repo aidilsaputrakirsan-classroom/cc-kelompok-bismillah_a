@@ -1,12 +1,39 @@
 # Dokumentasi Hasil Testing Semua Endpoint Via Swagger/Thunder Client
 
-Kegiatan ini merupakan pengujian *endpoint* API menggunakan Swagger UI yang bertujuan untuk memastikan bahwa setiap layanan API pada sistem dapat berjalan dengan baik sesuai dengan fungsinya. API (*Application Programming Interface*) adalah penghubung yang memungkinkan dua aplikasi atau sistem dapat saling berkomunikasi dan bertukar data. Melalui API, sistem dapat melakukan berbagai proses seperti menambahkan data, menampilkan data, memperbarui data, dan menghapus data yang tersimpan di dalam database. Pengujian dilakukan menggunakan Swagger UI, yaitu sebuah alat berbasis web yang digunakan untuk melihat dokumentasi API serta mencoba endpoint API secara langsung tanpa perlu membuat tampilan aplikasi terlebih dahulu. Dengan menggunakan Swagger UI, pengembang dapat mengirim permintaan ke server dan melihat respon yang diberikan oleh sistem, sehingga dapat memastikan bahwa proses pengolahan data pada sistem berjalan dengan baik dan sesuai dengan yang diharapkan.
+Kegiatan ini merupakan pengujian *endpoint* API menggunakan **Swagger UI** untuk memastikan setiap layanan API pada sistem berjalan dengan baik sesuai fungsinya. API memungkinkan aplikasi saling berkomunikasi dan bertukar data, seperti menambah, menampilkan, memperbarui, dan menghapus data dalam database. Melalui Swagger UI, pengembang dapat melihat dokumentasi API, mengirim permintaan ke server, serta melihat respons sistem secara langsung untuk memastikan proses pengolahan data berjalan dengan benar.
+
+---
+
+# API Test Results (Swagger)
+
+Dokumen ini berisi hasil pengujian API menggunakan **Swagger UI** pada aplikasi yang berjalan di server lokal.
+
+---
+
+## 🔌 API Endpoints
+
+Base URL: `http://localhost:8000`  
+Dokumentasi interaktif: `http://localhost:8000/docs`
+
+| Method | Endpoint | Deskripsi | Status Code |
+|------  |------      |------   |------       |
+| `GET`  | `/health`| Health check API untuk memastikan server berjalan| 200 |
+| `GET`  | `/team`| Menampilkan informasi anggota tim | 200 |
+| `POST` | `/items` | Menambahkan data item baru | 201 / 422 |
+| `GET` | `/items` | Mengambil daftar item (pagination + search) | 200 / 422 |
+| `GET` | `/items/stats`| Menampilkan statistik data item | 200 |
+| `GET` | `/items/{item_id}`| Mengambil satu item berdasarkan ID | 200 / 404 / 422|
+| `PUT` | `/items/{item_id}`| Memperbarui data item berdasarkan ID | 200 / 404 / 422 |
+| `DELETE` | `/items/{ittem_id}`| Menghapus item berdasarkan ID | 204 / 404 |
+
+---
 
 ### 1. Proses Mengirim Request POST untuk Menambahkan Data
 
 <img src="image/1.png" /> 
 
-Gambar pertama menampilkan halaman untuk membuat data item baru melalui *endpoint* **POST /items** pada dokumentasi API di Swagger UI. Pada halaman ini terdapat penjelasan mengenai data yang harus diisi ketika ingin menambahkan item baru ke dalam sistem. Data tersebut meliputi *name* yang merupakan nama barang, *price* yang berisi harga barang, *description* sebagai deskripsi barang (bersifat opsional), dan *quantity* yang menunjukkan jumlah stok barang. Di bagian **request body* terlihat contoh data dalam format JSON yang akan dikirim ke server, yaitu item bernama *Keyboard Mechanical* dengan harga 120000, deskripsi “Keyboard untuk coding”, dan jumlah stok 8. Setelah data diisi, pengguna dapat menekan tombol Execute untuk mengirimkan permintaan ke server agar data tersebut diproses dan disimpan.
+Gambar ini menampilkan fitur untuk membuat data item baru melalui *endpoint* **POST /items** di Swagger UI. Pengguna perlu mengisi beberapa data seperti **name** (nama barang), **price** (harga), **description** (deskripsi, opsional), dan **quantity** (jumlah stok). Pada bagian **request body** ditampilkan contoh data dalam format JSON. Setelah data diisi, pengguna dapat menekan tombol **Execute** untuk mengirim permintaan ke server agar data item diproses dan disimpan.
+
 
 <img src="image/2.png" /> 
 
@@ -16,62 +43,75 @@ Gambar ini menunjukkan hasil setelah permintaan pengiriman data dilakukan. Pada 
 
 Gambar ini menampilkan dokumentasi mengenai kemungkinan respons yang diberikan oleh API. Pada bagian **201 Successful Response**, ditunjukkan contoh format data yang akan diterima pengguna jika proses penambahan item berhasil. Data tersebut meliputi nama item, deskripsi, harga, jumlah stok, serta waktu pembuatan data. Selain itu, terdapat juga bagian **422 Validation Error**, yaitu respons yang muncul jika data yang dikirim tidak sesuai dengan ketentuan yang telah ditetapkan, misalnya ada field yang kosong atau format data tidak sesuai. Bagian ini membantu pengguna memahami bagaimana sistem memberikan respons baik ketika proses berhasil maupun ketika terjadi kesalahan input data.
 
+---
+
 ### 2. Proses Mengirim Request GET untuk Mengambil Daftar Data
 
 <img src="image/4.png" /> 
 
-Gambar ini menampilkan halaman dokumentasi API pada Swagger UI untuk *endpoint* **GET /items** yang digunakan untuk mengambil daftar data item dari sistem. Pada halaman ini dijelaskan bahwa *endpoint* tersebut mendukung fitur *pagination* dan pencarian data. Terdapat beberapa parameter yang dapat diisi oleh pengguna, yaitu *skip*, *limit*, dan *search*. Parameter *skip* digunakan untuk menentukan jumlah data yang dilewati dari awal, sehingga sistem dapat menampilkan data mulai dari posisi tertentu. Parameter *limit* digunakan untuk menentukan jumlah maksimal data yang ditampilkan dalam satu permintaan atau satu halaman. Sedangkan parameter *search* digunakan untuk mencari item berdasarkan nama atau deskripsi tertentu. Setelah parameter diisi sesuai kebutuhan, pengguna dapat menekan tombol **Execute** untuk mengirim permintaan ke server agar sistem menampilkan daftar item yang sesuai dengan parameter yang diberikan.
+Gambar ini menampilkan dokumentasi API di Swagger UI untuk *endpoint* **GET /items** yang digunakan mengambil daftar data item. *Endpoint* ini mendukung fitur *pagination* dan pencarian dengan parameter **skip** (jumlah data yang dilewati), **limit** (jumlah maksimal data yang ditampilkan), dan **search** (pencarian berdasarkan nama atau deskripsi). Setelah parameter diisi, pengguna dapat menekan **Execute** untuk mengirim permintaan dan menampilkan data item sesuai parameter.
+
 
 <img src="image/5.png" /> 
 
-Gambar ini menunjukkan hasil setelah permintaan data dilakukan melalui *endpoint* **GET /items**. Pada bagian ini ditampilkan contoh perintah **cURL** yang dapat digunakan untuk melakukan request yang sama melalui terminal atau aplikasi lain. Selain itu, terdapat bagian Request URL yang memperlihatkan alamat *endpoint* yang digunakan, yaitu `http://localhost:8000/items` dengan parameter *skip*, *limit*, dan *search* yang telah diisi sebelumnya. Server kemudian memberikan **response code 200**, yang berarti permintaan berhasil diproses oleh sistem. Pada bagian **response body** ditampilkan data dalam format JSON yang berisi informasi item yang ditemukan berdasarkan kata kunci pencarian, misalnya item dengan nama Laptop. Data tersebut mencakup beberapa atribut seperti *name*, *description*, *price*, *quantity*, serta informasi waktu seperti `created_at` dan `updated_at`. Hal ini menunjukkan bahwa sistem berhasil mengambil dan mengirimkan data item yang sesuai dengan permintaan pengguna.
+Gambar ini menampilkan hasil permintaan data menggunakan *endpoint* **GET /items**. Di halaman ini terdapat contoh perintah **cURL**, **Request URL** `http://localhost:8000/items`, serta parameter seperti *skip*, *limit*, dan *search*. Server memberikan **response code 200** yang menandakan permintaan berhasil. Pada **response body** ditampilkan data item dalam format JSON yang memuat informasi seperti *name*, *description*, *price*, *quantity*, serta waktu `created_at` dan `updated_at`. Ini menunjukkan bahwa sistem berhasil mengambil data sesuai permintaan pengguna.
+
 
 <img src="image/6.png" /> 
 
-Gambar ini menampilkan bagian dokumentasi yang menjelaskan jenis respons yang dapat diberikan oleh API ketika *endpoint* **GET /items** digunakan. Pada bagian **200 Successful Response**, ditampilkan contoh format data yang akan diterima pengguna apabila permintaan berhasil diproses oleh server. Data tersebut biasanya berisi jumlah total item serta daftar item yang ditemukan, lengkap dengan informasi seperti nama item, deskripsi, harga, jumlah stok, dan waktu pembuatan atau pembaruan data. Selain itu, terdapat juga bagian **422 Validation Error**, yaitu respons yang muncul apabila parameter yang dikirimkan oleh pengguna tidak sesuai dengan ketentuan yang telah ditetapkan oleh sistem. Contohnya adalah ketika format data tidak valid atau nilai parameter tidak memenuhi aturan yang berlaku. Bagian ini membantu pengguna memahami bagaimana sistem memberikan respons baik ketika proses berhasil maupun ketika terjadi kesalahan pada input atau permintaan yang dikirim.
+Gambar ini menampilkan dokumentasi respons API untuk *endpoint* **GET /items**. Bagian **200 Successful Response** menunjukkan contoh data yang diterima jika permintaan berhasil, berisi total item dan informasi item seperti nama, deskripsi, harga, stok, serta waktu pembuatan atau pembaruan. Sedangkan **422 Validation Error** muncul jika parameter yang dikirim tidak valid atau tidak sesuai ketentuan sistem.
+
+
+---
 
 ### 3. Proses Mengambil Satu Data Berdasarkan ID
 
 <img src="image/7.png" /> 
 
-Gambar ini menampilkan halaman dokumentasi API pada Swagger UI untuk *endpoint* **GET /items/{item_id}** yang digunakan untuk mengambil satu data item berdasarkan ID tertentu. Pada halaman ini terdapat bagian Parameters yang meminta pengguna memasukkan nilai `item_id` sebagai parameter utama. Parameter ini bersifat wajib karena sistem memerlukan ID untuk menentukan item mana yang akan diambil dari database. Pada contoh yang ditampilkan, nilai `item_id` diisi dengan angka 1. Setelah parameter diisi, pengguna dapat menekan tombol **Execute** untuk mengirim permintaan ke server agar sistem menampilkan data item yang sesuai dengan ID yang dimasukkan.
+Gambar ini menampilkan dokumentasi API di Swagger UI untuk endpoint GET /items/{item_id} yang digunakan mengambil satu data item berdasarkan ID. Pada bagian Parameters, pengguna harus memasukkan nilai item_id sebagai parameter wajib. Setelah diisi, pengguna dapat menekan tombol Execute untuk mengirim permintaan ke server dan menampilkan data item sesuai ID yang dimasukkan.
 
 <img src="image/8.png" /> 
 
-Gambar ini menunjukkan hasil setelah permintaan data dilakukan melalui *endpoint* **GET /items/{item_id}**. Pada bagian ini ditampilkan contoh perintah cURL yang dapat digunakan untuk melakukan request yang sama melalui terminal. Selain itu, terdapat bagian Request URL yang memperlihatkan alamat *endpoint* yang digunakan, yaitu `http://localhost:8000/items/1`. Server kemudian memberikan **response code 404 (Error: Not Found)**, yang berarti data dengan ID tersebut tidak ditemukan di dalam sistem. Pada bagian **response body** ditampilkan pesan dalam format JSON yang berisi keterangan bahwa item dengan ID tersebut tidak tersedia atau tidak ditemukan. Hal ini menunjukkan bahwa sistem telah memproses permintaan, tetapi tidak menemukan data yang sesuai dengan ID yang diminta.
+Gambar ini menampilkan hasil permintaan melalui *endpoint* **GET /items/{item_id}**. Ditampilkan contoh perintah **cURL** dan **Request URL** `http://localhost:8000/items/1`. Server memberikan **response code 404 (Not Found)** yang berarti data dengan ID tersebut tidak ditemukan. Pada **response body** muncul pesan JSON yang menjelaskan bahwa item dengan ID tersebut tidak tersedia di sistem.
 
 <img src="image/9.png" /> 
 
-Gambar ini menampilkan dokumentasi mengenai jenis respons yang dapat diberikan oleh API ketika *endpoint* **GET /items/{item_id}** digunakan. Pada bagian **200 Successful Response**, ditunjukkan contoh format data yang akan diterima pengguna apabila item dengan ID yang diminta berhasil ditemukan. Data tersebut biasanya berisi informasi lengkap seperti *name*, *description*, *price*, *quantity*, serta waktu pembuatan dan pembaruan data seperti `created_at` dan `updated_at`. Selain itu, terdapat juga bagian **422 Validation Error**, yaitu respons yang muncul jika parameter yang dikirimkan tidak sesuai dengan ketentuan sistem, misalnya format ID yang tidak valid atau kesalahan pada input data. Dokumentasi ini membantu pengguna memahami kemungkinan respons yang diberikan oleh sistem baik ketika proses berhasil maupun ketika terjadi kesalahan.
+Gambar ini menampilkan dokumentasi respons API untuk *endpoint* **GET /items/{item_id}**. Bagian **200 Successful Response** menunjukkan contoh data yang diterima jika item berhasil ditemukan, seperti *name*, *description*, *price*, *quantity*, serta waktu `created_at` dan `updated_at`. Sedangkan **422 Validation Error** muncul jika parameter yang dikirim tidak valid atau tidak sesuai ketentuan sistem.
+
+---
 
 ### 4. Proses Memperbarui Data Menggunakan PUT
 
 <img src="image/10.png" /> 
 
-Gambar ini menampilkan halaman dokumentasi API pada Swagger UI untuk *endpoint* **PUT /items/{item_id}** yang digunakan untuk memperbarui data item berdasarkan ID tertentu. *Endpoint* ini memungkinkan pengguna melakukan *partial update*, yaitu hanya memperbarui *field* tertentu tanpa harus mengubah seluruh data item. Pada bagian **Parameters**, pengguna diminta memasukkan `item_id` sebagai identitas item yang akan diperbarui. Selain itu, terdapat bagian **Request body** yang berisi data dalam format JSON yang ingin diubah. Pada contoh yang ditampilkan, hanya *field price* yang diperbarui dengan nilai 1400000. Setelah data dimasukkan, pengguna dapat menekan tombol **Execute** untuk mengirim permintaan pembaruan data ke server agar sistem memproses perubahan tersebut.
+Gambar ini menampilkan dokumentasi API di Swagger UI untuk *endpoint* **PUT /items/{item_id}** yang digunakan memperbarui data item berdasarkan ID. Pengguna harus memasukkan **item_id** pada bagian **Parameters** dan data yang ingin diubah pada **Request body** dalam format JSON. *Endpoint* ini mendukung **partial update**, sehingga hanya *field* tertentu yang diperbarui, seperti contoh perubahan **price**. Setelah itu, pengguna menekan **Execute** untuk mengirim permintaan pembaruan ke server.
 
 <img src="image/11.png" /> 
 
-Gambar ini menunjukkan hasil setelah permintaan pembaruan data dilakukan melalui endpoint PUT /items/{item_id}. Pada bagian ini ditampilkan contoh perintah **cURL** yang dapat digunakan untuk melakukan request yang sama melalui terminal. Selain itu, terdapat bagian Request URL yang menunjukkan alamat endpoint yang digunakan, yaitu `http://localhost:8000/items/1`. Server kemudian memberikan **response code 200**, yang berarti proses pembaruan data berhasil dilakukan. Pada bagian **response body**, sistem menampilkan kembali data item yang telah diperbarui dalam format JSON, termasuk informasi seperti *name*, *description*, *price*, *quantity*, serta waktu `created_at` dan `updated_at`. Nilai *price* pada data tersebut terlihat telah berubah sesuai dengan nilai baru yang dikirimkan, yang menandakan bahwa proses *update* berhasil dilakukan di *database*.
+Gambar ini menampilkan hasil permintaan pembaruan data melalui *endpoint* **PUT /items/{item_id}**. Ditampilkan contoh perintah **cURL** dan **Request URL** `http://localhost:8000/items/1`. Server memberikan **response code 200** yang menandakan pembaruan berhasil. Pada **response body** ditampilkan data item yang telah diperbarui dalam format JSON, termasuk *name*, *description*, *price*, *quantity*, serta waktu `created_at` dan `updated_at`, dengan nilai *price* yang sudah berubah sesuai pembaruan.
 
 <img src="image/12.png" /> 
 
-Gambar ini menampilkan dokumentasi mengenai jenis respons yang dapat diberikan oleh API ketika *endpoint* **PUT /items/{item_id}** digunakan. Pada bagian **200 Successful Response**, ditunjukkan contoh format data yang akan diterima pengguna apabila proses pembaruan data berhasil dilakukan. Data yang ditampilkan biasanya mencakup informasi lengkap item seperti nama, deskripsi, harga, jumlah stok, serta waktu pembuatan dan pembaruan data. Selain itu, terdapat juga bagian **422 Validation Error**, yaitu respons yang muncul apabila data yang dikirimkan tidak sesuai dengan aturan yang telah ditetapkan oleh sistem, misalnya format data yang tidak valid atau nilai yang tidak sesuai dengan tipe data yang ditentukan. Dokumentasi ini membantu pengguna memahami bagaimana sistem memberikan respons ketika proses pembaruan berhasil maupun ketika terjadi kesalahan pada data yang dikirim.
+Gambar ini menampilkan dokumentasi respons API untuk *endpoint* **PUT /items/{item_id}**. Bagian **200 Successful Response** menunjukkan contoh data yang diterima jika pembaruan berhasil, berisi informasi item seperti *name*, *description*, *price*, *quantity*, serta waktu `created_at` dan `updated_at`. Sedangkan **422 Validation Error** muncul jika data yang dikirim tidak valid atau tidak sesuai dengan aturan sistem.
+
+---
 
 ### 5. Proses Menghapus Data Menggunakan DELETE
 
 <img src="image/13.png" /> 
 
-Gambar ini menampilkan halaman dokumentasi API pada Swagger UI untuk *endpoint* **DELETE /items/{item_id}** yang digunakan untuk menghapus data item dari sistem berdasarkan ID tertentu. Pada halaman ini terdapat bagian Parameters yang meminta pengguna memasukkan nilai `item_id` sebagai identitas item yang akan dihapus. Parameter ini bersifat wajib karena sistem perlu mengetahui item mana yang akan dihapus dari database. Pada contoh yang ditampilkan, nilai `item_id` diisi dengan angka 1. Setelah parameter tersebut diisi, pengguna dapat menekan tombol **Execute** untuk mengirim permintaan ke server agar sistem memproses penghapusan data item dengan ID yang telah ditentukan.
+Gambar ini menampilkan dokumentasi API di Swagger UI untuk *endpoint* **DELETE /items/{item_id}** yang digunakan menghapus data item berdasarkan ID. Pengguna harus memasukkan **item_id** pada bagian **Parameters** sebagai identitas item yang akan dihapus. Setelah itu, pengguna dapat menekan tombol **Execute** untuk mengirim permintaan ke server agar sistem memproses penghapusan data.
 
 <img src="image/14.png" /> 
 
-Gambar ini menunjukkan hasil setelah permintaan penghapusan data dilakukan melalui *endpoint* **DELETE /items/{item_id}**. Pada bagian ini ditampilkan contoh perintah **cURL** yang dapat digunakan untuk melakukan request yang sama melalui terminal. Selain itu, terdapat bagian Request URL yang memperlihatkan alamat *endpoint* API yang digunakan, yaitu `http://localhost:8000/items/1`. Server kemudian memberikan **response code 204**, yang berarti proses penghapusan data berhasil dilakukan dan tidak ada konten yang dikembalikan dalam **response body**. Pada bagian **response headers** ditampilkan beberapa informasi tambahan seperti tipe konten dan detail server yang digunakan. Hal ini menunjukkan bahwa sistem telah berhasil memproses permintaan penghapusan item dari database.
+Gambar ini menampilkan hasil permintaan penghapusan data melalui *endpoint* **DELETE /items/{item_id}**. Ditampilkan contoh perintah **cURL** dan **Request URL** `http://localhost:8000/items/1`. Server memberikan **response code 204** yang menandakan penghapusan berhasil dan tidak ada konten pada **response body**. Pada **response headers** juga ditampilkan informasi tambahan terkait respons dari server.
+
+---
 
 ### 6. Menampilkan Statistik Data
 
 <img src="image/15.png" /> 
 
-Gambar tersebut menampilkan halaman dokumentasi API pada Swagger UI untuk *endpoint* **GET /items/stats** yang digunakan untuk menampilkan statistik data item yang tersimpan dalam sistem. *Endpoint* ini berfungsi untuk memberikan ringkasan informasi mengenai data item yang tersimpan di dalam sistem. Pada bagian **Parameters** terlihat bahwa *endpoint* ini tidak memerlukan parameter tambahan, sehingga pengguna cukup menekan tombol **Execute** untuk menjalankan permintaan ke server.
+Gambar ini menampilkan halaman dokumentasi API pada Swagger UI untuk *endpoint* **GET /items/stats** yang digunakan untuk menampilkan statistik data item yang tersimpan dalam sistem. *Endpoint* ini berfungsi untuk memberikan ringkasan informasi mengenai data item yang tersimpan di dalam sistem. Pada bagian **Parameters** terlihat bahwa *endpoint* ini tidak memerlukan parameter tambahan, sehingga pengguna cukup menekan tombol **Execute** untuk menjalankan permintaan ke server.
 
 Setelah permintaan dijalankan, sistem menampilkan bagian **cURL** yang menunjukkan contoh perintah yang dapat digunakan untuk melakukan request melalui terminal. Selain itu, terdapat Request URL yang memperlihatkan alamat endpoint yang digunakan, yaitu `http://127.0.0.1:8000/items/stats`. Server kemudian memberikan **response code 200**, yang menandakan bahwa permintaan berhasil diproses. Hasil respons ditampilkan dalam format JSON yang berisi beberapa informasi statistik, yaitu `total_items` yang menunjukkan jumlah keseluruhan item yang tersimpan sebanyak 3, serta `total_value` yang menunjukkan total nilai seluruh barang sebesar 8.460.000. Selain itu, sistem juga menampilkan informasi mengenai barang dengan harga paling mahal (*most_expensive*) yaitu Laptop dengan harga 1.400.000, serta barang dengan harga paling murah (*cheapest*) yaitu *Mouse Wireless* dengan harga 250.000. Informasi ini membantu pengguna untuk melihat ringkasan item yang tersimpan secara cepat dan terstruktur melalui satu *endpoint* API.
