@@ -4,13 +4,7 @@ Kegiatan ini merupakan pengujian *endpoint* API menggunakan **Swagger UI** untuk
 
 ---
 
-# API Test Results (Swagger)
-
-Dokumen ini berisi hasil pengujian API menggunakan **Swagger UI** pada aplikasi yang berjalan di server lokal.
-
----
-
-## 🔌 API Endpoints
+## API Endpoints
 
 Base URL: `http://localhost:8000`  
 Dokumentasi interaktif: `http://localhost:8000/docs`
