@@ -1,4 +1,4 @@
-# dokumentasi hasil testing semua endpoint via Swagger/Thunder Client
+# Dokumentasi Hasil Testing Semua Endpoint Via Swagger/Thunder Client
 <img src="image/1.png" /> 
 <img src="image/2.png" /> 
 <img src="image/3.png" /> 
