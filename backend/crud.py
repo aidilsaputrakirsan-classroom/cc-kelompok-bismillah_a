@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from models import Item
 from schemas import ItemCreate, ItemUpdate
 
@@ -71,3 +71,45 @@ def delete_item(db: Session, item_id: int) -> bool:
     db.delete(db_item)
     db.commit()
     return True
+
+
+def get_stats(db: Session) -> dict:
+    """
+    Ambil statistik inventory menggunakan SQL aggregation.
+    Efisien karena tidak load semua data ke memory.
+    """
+    total_items = db.query(func.count(Item.id)).scalar() or 0
+
+    if total_items == 0:
+        return {
+            "total_items": 0,
+            "total_quantity": 0,
+            "total_value": 0.0,
+            "avg_price": 0.0,
+            "most_expensive": None,
+            "cheapest": None,
+        }
+
+    total_quantity = db.query(func.sum(Item.quantity)).scalar() or 0
+    total_value = db.query(func.sum(Item.price * Item.quantity)).scalar() or 0.0
+    avg_price = db.query(func.avg(Item.price)).scalar() or 0.0
+
+    most_expensive = (
+        db.query(Item.name, Item.price)
+        .order_by(Item.price.desc())
+        .first()
+    )
+    cheapest = (
+        db.query(Item.name, Item.price)
+        .order_by(Item.price.asc())
+        .first()
+    )
+
+    return {
+        "total_items": total_items,
+        "total_quantity": int(total_quantity),
+        "total_value": round(float(total_value), 2),
+        "avg_price": round(float(avg_price), 2),
+        "most_expensive": {"name": most_expensive.name, "price": most_expensive.price} if most_expensive else None,
+        "cheapest": {"name": cheapest.name, "price": cheapest.price} if cheapest else None,
+    }
