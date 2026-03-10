@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from "react"
-import Header from "./components/Header"
-import SearchBar from "./components/SearchBar"
-import ItemForm from "./components/ItemForm"
-import ItemList from "./components/ItemList"
+import Header from "./component/Header"
+import SearchBar from "./component/SearchBar"
+import ItemForm from "./component/ItemForm"
+import ItemList from "./component/ItemList"
 import { fetchItems, createItem, updateItem, deleteItem, checkHealth } from "./services/api"
 
 function App() {
