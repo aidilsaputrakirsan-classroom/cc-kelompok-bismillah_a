@@ -13,6 +13,7 @@ function App() {
   const [isConnected, setIsConnected] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
   const [searchQuery, setSearchQuery] = useState("")
+  const [sortBy, setSortBy] = useState("newest")
 
   // ==================== LOAD DATA ====================
   const loadItems = useCallback(async (search = "") => {
@@ -78,6 +79,20 @@ function App() {
     setEditingItem(null)
   }
 
+  const sortedItems = [...items].sort((firstItem, secondItem) => {
+    if (sortBy === "name") {
+      return firstItem.name.localeCompare(secondItem.name, "id-ID")
+    }
+
+    if (sortBy === "price") {
+      return firstItem.price - secondItem.price
+    }
+
+    const firstCreatedAt = Date.parse(firstItem.created_at ?? "") || 0
+    const secondCreatedAt = Date.parse(secondItem.created_at ?? "") || 0
+    return secondCreatedAt - firstCreatedAt
+  })
+
   // ==================== RENDER ====================
   return (
     <div style={styles.app}>
@@ -89,8 +104,23 @@ function App() {
           onCancelEdit={handleCancelEdit}
         />
         <SearchBar onSearch={handleSearch} />
+        <div style={styles.sortRow}>
+          <label htmlFor="sort-items" style={styles.sortLabel}>
+            Urutkan berdasarkan:
+          </label>
+          <select
+            id="sort-items"
+            value={sortBy}
+            onChange={(event) => setSortBy(event.target.value)}
+            style={styles.sortSelect}
+          >
+            <option value="name">Nama</option>
+            <option value="price">Harga</option>
+            <option value="newest">Terbaru</option>
+          </select>
+        </div>
         <ItemList
-          items={items}
+          items={sortedItems}
           onEdit={handleEdit}
           onDelete={handleDelete}
           loading={loading}
@@ -110,6 +140,27 @@ const styles = {
   container: {
     maxWidth: "900px",
     margin: "0 auto",
+  },
+  sortRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "0.75rem",
+    marginBottom: "1.5rem",
+    flexWrap: "wrap",
+  },
+  sortLabel: {
+    color: "#1F4E79",
+    fontWeight: "bold",
+    fontSize: "0.95rem",
+  },
+  sortSelect: {
+    minWidth: "220px",
+    padding: "0.7rem 0.9rem",
+    border: "2px solid #ddd",
+    borderRadius: "8px",
+    fontSize: "0.95rem",
+    backgroundColor: "#fff",
+    color: "#333",
   },
 }
 
