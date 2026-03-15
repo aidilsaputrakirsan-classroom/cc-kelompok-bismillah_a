@@ -230,8 +230,6 @@ GET /items/stats
 
 Bagian ini menampilkan hasil pengujian terhadap setiap *endpoint* API yang telah dibuat. Pengujian dilakukan menggunakan Swagger UI melalui halaman dokumentasi interaktif (`/docs`). Tujuan dari pengujian ini adalah untuk memastikan bahwa setiap *endpoint* dapat berjalan sesuai dengan fungsinya, baik saat menerima input yang valid maupun ketika terjadi kondisi tertentu seperti data tidak ditemukan atau *input* tidak sesuai aturan. Tabel berikut menunjukkan *endpoint* yang diuji, skenario pengujian yang dilakukan, hasil yang diharapkan (*expected*), hasil yang diperoleh dari sistem (*actual*), serta status pengujian yang menunjukkan apakah pengujian tersebut berhasil atau tidak.
 
-
-
 | Endpoint             | Skenario            | Expected                 | Actual                   | Status |
 | -------------------- | ------------------- | ------------------------ | ------------------------ | ------ |
 | `GET /health`        | Health check        | 200 OK                   | 200 OK                   | Pass   |
