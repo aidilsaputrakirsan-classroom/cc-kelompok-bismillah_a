@@ -86,8 +86,8 @@ npm run dev
 | Minggu | Target                 | Status |
 | ------ | ---------------------- | ------ |
 | 1      | Setup & Hello World    | ✅     |
-| 2      | REST API + Database    | ⬜     |
-| 3      | React Frontend         | ⬜     |
+| 2      | REST API + Database    | ✅     |
+| 3      | React Frontend         | ✅     |
 | 4      | Full-Stack Integration | ⬜     |
 | 5-7    | Docker & Compose       | ⬜     |
 | 8      | UTS Demo               | ⬜     |
@@ -121,6 +121,7 @@ cc-kelompok-bismillah_a/
 │   ├── member-[Firni-Fauziah-Ramadhini].md
 │   ├── member-[Muhammad-Novri-Aziztra].md
 │   ├── member-[Salsabila-Putri-Zahrani].md
+│   ├── ui-test-results.md
 ├── frontend/
 │   ├── public/
 │   ├── src/
