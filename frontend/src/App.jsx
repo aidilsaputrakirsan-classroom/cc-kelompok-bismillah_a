@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from "react"
-import Header from "./components/Header"
-import SearchBar from "./components/SearchBar"
-import ItemForm from "./components/ItemForm"
-import ItemList from "./components/ItemList"
-import LoginPage from "./components/LoginPage"
+import Header from "./component/Header"
+import SearchBar from "./component/SearchBar"
+import ItemForm from "./component/ItemForm"
+import ItemList from "./component/ItemList"
+import LoginPage from "./component/LoginPage"
 import {
   fetchItems, createItem, updateItem, deleteItem,
   checkHealth, login, register, setToken, clearToken,
