@@ -24,6 +24,41 @@ function authHeaders() {
   return headers;
 }
 
+function normalizeErrorDetail(detail) {
+  if (typeof detail === "string") {
+    return detail;
+  }
+
+  if (Array.isArray(detail)) {
+    return detail
+      .map((entry) => {
+        if (typeof entry === "string") {
+          return entry;
+        }
+
+        if (entry && typeof entry === "object") {
+          const field = Array.isArray(entry.loc)
+            ? entry.loc.filter((part) => part !== "body").join(".")
+            : "";
+          const msg = entry.msg || JSON.stringify(entry);
+          return field ? `${field}: ${msg}` : msg;
+        }
+
+        return String(entry);
+      })
+      .join("; ");
+  }
+
+  if (detail && typeof detail === "object") {
+    if (typeof detail.msg === "string") {
+      return detail.msg;
+    }
+    return JSON.stringify(detail);
+  }
+
+  return null;
+}
+
 // Helper: handle response errors
 async function handleResponse(response) {
   if (response.status === 401) {
@@ -32,7 +67,8 @@ async function handleResponse(response) {
   }
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || `Request gagal (${response.status})`);
+    const detail = normalizeErrorDetail(error.detail);
+    throw new Error(detail || `Request gagal (${response.status})`);
   }
   // 204 No Content
   if (response.status === 204) return null;
@@ -85,7 +121,10 @@ export async function fetchItems(search = "", skip = 0, limit = 20) {
 export async function createItem(itemData) {
   const response = await fetch(`${API_URL}/items`, {
     method: "POST",
-    headers: authHeaders(),
+    headers: {
+      ...authHeaders(),
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify(itemData),
   });
   return handleResponse(response);
@@ -94,7 +133,10 @@ export async function createItem(itemData) {
 export async function updateItem(id, itemData) {
   const response = await fetch(`${API_URL}/items/${id}`, {
     method: "PUT",
-    headers: authHeaders(),
+    headers: {
+      ...authHeaders(),
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify(itemData),
   });
   return handleResponse(response);
