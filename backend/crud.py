@@ -117,7 +117,7 @@ def get_stats(db: Session) -> dict:
 
 # ==================== USER CRUD ====================
 
-def create_user(db: Session, user_data: UserCreate) -> User:
+def create_user(db: Session, user_data: UserCreate) -> User | None:
     """Buat user baru dengan password yang di-hash."""
     # Cek apakah email sudah terdaftar
     existing = db.query(User).filter(User.email == user_data.email).first()

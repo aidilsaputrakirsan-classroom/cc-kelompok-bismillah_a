@@ -2,13 +2,15 @@ import os
 from dotenv import load_dotenv
 from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from database import engine, get_db
 from models import Base, User
 from schemas import (
     ItemCreate, ItemUpdate, ItemResponse, ItemListResponse,
-    UserCreate, UserResponse, LoginRequest, TokenResponse,
+    ItemStatsResponse,
+    UserCreate, UserResponse, LoginRequest, TokenResponse, normalize_and_validate_email,
 )
 from auth import create_access_token, get_current_user
 import crud
@@ -81,6 +83,33 @@ def login(login_data: LoginRequest, db: Session = Depends(get_db)):
     }
 
 
+@app.post("/auth/token")
+def login_oauth2_form(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db),
+):
+    """
+    Endpoint OAuth2 password flow khusus Swagger Authorize.
+
+    - Isikan email pada field `username` di dialog Authorize.
+    - Endpoint ini mengembalikan format standar OAuth2: access_token + token_type.
+    """
+    try:
+        email = normalize_and_validate_email(form_data.username)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    user = crud.authenticate_user(db=db, email=email, password=form_data.password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Email atau password salah")
+
+    token = create_access_token(data={"sub": str(user.id)})
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+    }
+
+
 @app.get("/auth/me", response_model=UserResponse)
 def get_me(current_user: User = Depends(get_current_user)):
     """Ambil profil user yang sedang login."""
@@ -103,12 +132,21 @@ def create_item(
 def list_items(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
-    search: str = Query(None),
+    search: str | None = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Ambil daftar items. **Membutuhkan autentikasi.**"""
     return crud.get_items(db=db, skip=skip, limit=limit, search=search)
+
+
+@app.get("/items/stats", response_model=ItemStatsResponse)
+def get_item_stats(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Ambil statistik inventory. **Membutuhkan autentikasi.**"""
+    return crud.get_stats(db=db)
 
 
 @app.get("/items/{item_id}", response_model=ItemResponse)

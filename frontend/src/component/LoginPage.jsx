@@ -1,5 +1,8 @@
 import { useState } from "react"
 
+const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s]).{8,64}$/
+
 function LoginPage({ onLogin, onRegister }) {
   const [isRegister, setIsRegister] = useState(false)
   const [formData, setFormData] = useState({
@@ -26,8 +29,13 @@ function LoginPage({ onLogin, onRegister }) {
           setLoading(false)
           return
         }
-        if (formData.password.length < 8) {
-          setError("Password minimal 8 karakter")
+        if (!EMAIL_REGEX.test(formData.email.trim().toLowerCase())) {
+          setError("Format email tidak valid. Contoh: user@student.itk.ac.id")
+          setLoading(false)
+          return
+        }
+        if (!PASSWORD_REGEX.test(formData.password)) {
+          setError("Password harus 8-64 karakter dan mengandung huruf besar, huruf kecil, angka, serta simbol.")
           setLoading(false)
           return
         }

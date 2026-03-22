@@ -22,8 +22,8 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60")
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# OAuth2 scheme — FastAPI akan mencari header "Authorization: Bearer <token>"
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+# OAuth2 scheme untuk Swagger Authorize menggunakan endpoint form /auth/token.
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
 
 # ==================== PASSWORD ====================
@@ -75,7 +75,11 @@ def get_current_user(
     user_id = payload.get("sub")
     if user_id is None:
         raise HTTPException(status_code=401, detail="Token tidak valid")
-    user_id = int(user_id)
+
+    try:
+        user_id = int(user_id)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=401, detail="Token tidak valid: format user tidak dikenali")
 
     user = db.query(User).filter(User.id == user_id).first()
 

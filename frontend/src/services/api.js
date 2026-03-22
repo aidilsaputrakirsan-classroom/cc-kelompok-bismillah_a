@@ -24,6 +24,44 @@ function authHeaders() {
   return headers;
 }
 
+const FIELD_LABEL = {
+  email: "Email",
+  password: "Password",
+  name: "Nama",
+  price: "Harga",
+  quantity: "Jumlah",
+  description: "Deskripsi",
+};
+
+function prettifyField(path = "") {
+  if (!path) return "";
+  return path
+    .split(".")
+    .map((segment) => FIELD_LABEL[segment] || segment)
+    .join(".");
+}
+
+function normalizeMessage(message) {
+  if (typeof message !== "string") {
+    return "Input tidak valid";
+  }
+
+  if (message.includes("String should have at least")) {
+    return "Panjang karakter belum memenuhi batas minimal.";
+  }
+  if (message.includes("String should have at most")) {
+    return "Panjang karakter melebihi batas maksimal.";
+  }
+  if (message.includes("Input should be greater than")) {
+    return "Nilai harus lebih besar dari batas minimal.";
+  }
+  if (message.includes("Field required")) {
+    return "Field wajib diisi.";
+  }
+
+  return message;
+}
+
 function normalizeErrorDetail(detail) {
   if (typeof detail === "string") {
     return detail;
@@ -40,8 +78,9 @@ function normalizeErrorDetail(detail) {
           const field = Array.isArray(entry.loc)
             ? entry.loc.filter((part) => part !== "body").join(".")
             : "";
-          const msg = entry.msg || JSON.stringify(entry);
-          return field ? `${field}: ${msg}` : msg;
+          const msg = normalizeMessage(entry.msg || JSON.stringify(entry));
+          const prettyField = prettifyField(field);
+          return prettyField ? `${prettyField}: ${msg}` : msg;
         }
 
         return String(entry);
@@ -61,14 +100,28 @@ function normalizeErrorDetail(detail) {
 
 // Helper: handle response errors
 async function handleResponse(response) {
-  if (response.status === 401) {
+  if (response.status === 401 && authToken) {
     clearToken();
     throw new Error("UNAUTHORIZED");
   }
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
     const detail = normalizeErrorDetail(error.detail);
-    throw new Error(detail || `Request gagal (${response.status})`);
+    if (detail) {
+      throw new Error(detail);
+    }
+
+    if (response.status === 400) {
+      throw new Error("Permintaan tidak valid. Periksa data yang dikirim.");
+    }
+    if (response.status === 403) {
+      throw new Error("Akses ditolak. Akun tidak memiliki izin.");
+    }
+    if (response.status === 404) {
+      throw new Error("Data tidak ditemukan.");
+    }
+
+    throw new Error(`Request gagal (${response.status})`);
   }
   // 204 No Content
   if (response.status === 204) return null;

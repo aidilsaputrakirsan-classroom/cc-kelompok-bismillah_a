@@ -1,6 +1,20 @@
-from pydantic import BaseModel, Field
-from typing import Optional
+import re
 from datetime import datetime
+from typing import Optional
+
+from pydantic import BaseModel, Field, field_validator
+
+
+EMAIL_PATTERN = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
+PASSWORD_PATTERN = re.compile(r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s]).{8,64}$")
+
+
+def normalize_and_validate_email(email: str) -> str:
+    """Normalisasi dan validasi format email menggunakan regex."""
+    normalized = email.strip().lower()
+    if not EMAIL_PATTERN.fullmatch(normalized):
+        raise ValueError("Format email tidak valid. Contoh: user@student.itk.ac.id")
+    return normalized
 
 
 # === BASE SCHEMA ===
@@ -47,15 +61,53 @@ class ItemListResponse(BaseModel):
     total: int
     items: list[ItemResponse]
 
+
+class ItemPriceSummary(BaseModel):
+    """Schema ringkas untuk item pada statistik harga."""
+    name: str
+    price: float
+
+
+class ItemStatsResponse(BaseModel):
+    """Schema untuk response statistik inventory."""
+    total_items: int = Field(..., ge=0)
+    total_quantity: int = Field(..., ge=0)
+    total_value: float = Field(..., ge=0)
+    avg_price: float = Field(..., ge=0)
+    most_expensive: Optional[ItemPriceSummary] = None
+    cheapest: Optional[ItemPriceSummary] = None
+
 # ============================================================
 # AUTH SCHEMAS
 # ============================================================
 
 class UserCreate(BaseModel):
     """Schema untuk registrasi user baru."""
-    email: str = Field(..., examples=["user@student.itk.ac.id"])
+    email: str = Field(..., min_length=6, max_length=255, examples=["user@student.itk.ac.id"])
     name: str = Field(..., min_length=2, max_length=100, examples=["Aidil Saputra"])
-    password: str = Field(..., min_length=8, examples=["password123"])
+    password: str = Field(..., min_length=8, max_length=64, examples=["Cloud@123"])
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        return normalize_and_validate_email(value)
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        normalized = value.strip()
+        if len(normalized) < 2:
+            raise ValueError("Nama minimal 2 karakter dan tidak boleh hanya spasi.")
+        return normalized
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_strength(cls, value: str) -> str:
+        if not PASSWORD_PATTERN.fullmatch(value):
+            raise ValueError(
+                "Password harus 8-64 karakter dan mengandung huruf besar, huruf kecil, angka, serta simbol."
+            )
+        return value
 
 
 class UserResponse(BaseModel):
@@ -72,8 +124,13 @@ class UserResponse(BaseModel):
 
 class LoginRequest(BaseModel):
     """Schema untuk login request."""
-    email: str = Field(..., examples=["user@student.itk.ac.id"])
+    email: str = Field(..., min_length=6, max_length=255, examples=["user@student.itk.ac.id"])
     password: str = Field(..., examples=["password123"])
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        return normalize_and_validate_email(value)
 
 
 class TokenResponse(BaseModel):
