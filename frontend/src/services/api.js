@@ -1,77 +1,161 @@
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-// ==================== GET ====================
+// ==================== TOKEN MANAGEMENT ====================
+
+let authToken = null;
+
+export function setToken(token) {
+  authToken = token;
+}
+
+export function getToken() {
+  return authToken;
+}
+
+export function clearToken() {
+  authToken = null;
+}
+
+function authHeaders() {
+  const headers = {};
+  if (authToken) {
+    headers["Authorization"] = `Bearer ${authToken}`;
+  }
+  return headers;
+}
+
+function normalizeErrorDetail(detail) {
+  if (typeof detail === "string") {
+    return detail;
+  }
+
+  if (Array.isArray(detail)) {
+    return detail
+      .map((entry) => {
+        if (typeof entry === "string") {
+          return entry;
+        }
+
+        if (entry && typeof entry === "object") {
+          const field = Array.isArray(entry.loc)
+            ? entry.loc.filter((part) => part !== "body").join(".")
+            : "";
+          const msg = entry.msg || JSON.stringify(entry);
+          return field ? `${field}: ${msg}` : msg;
+        }
+
+        return String(entry);
+      })
+      .join("; ");
+  }
+
+  if (detail && typeof detail === "object") {
+    if (typeof detail.msg === "string") {
+      return detail.msg;
+    }
+    return JSON.stringify(detail);
+  }
+
+  return null;
+}
+
+// Helper: handle response errors
+async function handleResponse(response) {
+  if (response.status === 401) {
+    clearToken();
+    throw new Error("UNAUTHORIZED");
+  }
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    const detail = normalizeErrorDetail(error.detail);
+    throw new Error(detail || `Request gagal (${response.status})`);
+  }
+  // 204 No Content
+  if (response.status === 204) return null;
+  return response.json();
+}
+
+// ==================== AUTH API ====================
+
+export async function register(userData) {
+  const response = await fetch(`${API_URL}/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(userData),
+  });
+  return handleResponse(response);
+}
+
+export async function login(email, password) {
+  const response = await fetch(`${API_URL}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  const data = await handleResponse(response);
+  setToken(data.access_token);
+  return data;
+}
+
+export async function getMe() {
+  const response = await fetch(`${API_URL}/auth/me`, {
+    headers: authHeaders(),
+  });
+  return handleResponse(response);
+}
+
+// ==================== ITEMS API ====================
 
 export async function fetchItems(search = "", skip = 0, limit = 20) {
-  const params = new URLSearchParams()
-  if (search) params.append("search", search)
-  params.append("skip", skip)
-  params.append("limit", limit)
+  const params = new URLSearchParams();
+  if (search) params.append("search", search);
+  params.append("skip", skip);
+  params.append("limit", limit);
 
-  const response = await fetch(`${API_URL}/items?${params}`)
-  if (!response.ok) throw new Error("Gagal mengambil data items")
-  return response.json()
+  const response = await fetch(`${API_URL}/items?${params}`, {
+    headers: authHeaders(),
+  });
+  return handleResponse(response);
 }
-
-export async function fetchItem(id) {
-  const response = await fetch(`${API_URL}/items/${id}`)
-  if (!response.ok) throw new Error(`Item ${id} tidak ditemukan`)
-  return response.json()
-}
-
-// ==================== POST ====================
 
 export async function createItem(itemData) {
   const response = await fetch(`${API_URL}/items`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      ...authHeaders(),
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify(itemData),
-  })
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.detail || "Gagal membuat item")
-  }
-  return response.json()
+  });
+  return handleResponse(response);
 }
-
-// ==================== PUT ====================
 
 export async function updateItem(id, itemData) {
   const response = await fetch(`${API_URL}/items/${id}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      ...authHeaders(),
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify(itemData),
-  })
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.detail || "Gagal mengupdate item")
-  }
-  return response.json()
+  });
+  return handleResponse(response);
 }
-
-// ==================== DELETE ====================
 
 export async function deleteItem(id) {
   const response = await fetch(`${API_URL}/items/${id}`, {
-    method: "DELETE",   
-  })
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}))
-    throw new Error(error.detail || `Gagal menghapus item ${id}`)
-  }
-
-  return true
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  return handleResponse(response);
 }
-
-// ==================== HEALTH ====================
 
 export async function checkHealth() {
   try {
-    const response = await fetch(`${API_URL}/health`)
-    const data = await response.json()
-    return data.status === "healthy"
+    const response = await fetch(`${API_URL}/health`);
+    const data = await response.json();
+    return data.status === "healthy";
   } catch {
-    return false
+    return false;
   }
 }
