@@ -90,8 +90,10 @@ function App() {
       setUser(data.user)
       setIsAuthenticated(true)
       showNotification("success", "Login berhasil")
-    } catch {
-      showNotification("error", "Login gagal")
+    } catch (err) {
+      const message = err?.message || "Login gagal"
+      showNotification("error", message)
+      throw new Error(message)
     }
   }
 
@@ -100,8 +102,10 @@ function App() {
       await register(userData)
       await handleLogin(userData.email, userData.password)
       showNotification("success", "Register berhasil")
-    } catch {
-      showNotification("error", "Register gagal")
+    } catch (err) {
+      const message = err?.message || "Register gagal"
+      showNotification("error", message)
+      throw new Error(message)
     }
   }
 
@@ -131,7 +135,8 @@ function App() {
       loadItems(searchQuery)
     } catch (err) {
       if (err.message === "UNAUTHORIZED") handleLogout()
-      else showNotification("error", "Gagal menyimpan data")
+      else showNotification("error", err.message || "Gagal menyimpan data")
+      throw err
     } finally {
       setActionLoading(false)
     }
@@ -153,7 +158,7 @@ function App() {
       loadItems(searchQuery)
     } catch (err) {
       if (err.message === "UNAUTHORIZED") handleLogout()
-      else showNotification("error", "Gagal menghapus data")
+      else showNotification("error", err.message || "Gagal menghapus data")
     } finally {
       setActionLoading(false)
     }

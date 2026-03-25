@@ -88,7 +88,7 @@ npm run dev
 | 1      | Setup & Hello World    | ✅     |
 | 2      | REST API + Database    | ✅     |
 | 3      | React Frontend         | ✅     |
-| 4      | Full-Stack Integration | ⬜     |
+| 4      | Full-Stack Integration | ✅     |
 | 5-7    | Docker & Compose       | ⬜     |
 | 8      | UTS Demo               | ⬜     |
 | 9-11   | CI/CD Pipeline         | ⬜     |
@@ -121,6 +121,7 @@ cc-kelompok-bismillah_a/
 │   ├── member-[Firni-Fauziah-Ramadhini].md
 │   ├── member-[Muhammad-Novri-Aziztra].md
 │   ├── member-[Salsabila-Putri-Zahrani].md
+│   ├── setup-guide.md
 │   ├── ui-test-results.md
 ├── frontend/
 │   ├── public/
@@ -243,3 +244,45 @@ Bagian ini menampilkan hasil pengujian terhadap setiap *endpoint* API yang telah
 | `PUT /items/{id}`    | Update field        | 200 OK + data baru       | 200 OK + data baru       | Pass   |
 | `DELETE /items/{id}` | Hapus item          | 204 No Content           | 204 No Content           | Pass   |
 | `GET /team`          | Info tim            | 200 OK + list anggota    | 200 OK + list anggota    | Pass   |
+
+---
+
+## Dokumentasi Pengujian Sistem
+
+Dokumentasi ini berisi hasil pengujian sistem berdasarkan skenario End-to-End yang dilakukan pada fitur autentikasi dan pengelolaan data (CRUD). Pengujian dilakukan untuk memastikan seluruh fungsi aplikasi berjalan sesuai dengan kebutuhan.
+
+---
+
+### Pengujian API Autentikasi
+
+| Endpoint            | Skenario                  | Expected                     | Actual                       | Status |
+|---------------------|---------------------------|-----------------------------|------------------------------|--------|
+| GET /               | Buka aplikasi             | Halaman login tampil        | Halaman login tampil         | ✅ Pass |
+| POST /auth/register | Data valid                | 201 Created + user terdaftar| 201 Created + user terdaftar | ✅ Pass |
+| POST /auth/register | Email duplikat            | 400 Bad Request             | 400 Bad Request              | ✅ Pass |
+| POST /auth/register | Field kosong              | 400 Bad Request             | 400 Bad Request              | ✅ Pass |
+| POST /auth/login    | Kredensial benar          | 200 OK + token              | 200 OK + token               | ✅ Pass |
+| POST /auth/login    | Password salah            | 401 Unauthorized            | 401 Unauthorized             | ✅ Pass |
+| POST /auth/login    | Email tidak terdaftar     | 401 Unauthorized            | 401 Unauthorized             | ✅ Pass |
+| POST /auth/login    | Field kosong              | 400 Bad Request             | 400 Bad Request              | ✅ Pass |
+| POST /auth/logout   | Logout user               | Redirect ke login           | Redirect ke login            | ✅ Pass |
+| GET /auth/me        | Token valid               | 200 OK + data user          | 200 OK + data user           | ✅ Pass |
+| GET /auth/me        | Tanpa token               | 401 Unauthorized            | 401 Unauthorized             | ✅ Pass |
+
+---
+
+### Pengujian API Pengelolaan Data (CRUD Items)
+
+| Endpoint           | Skenario                     | Expected                 | Actual                   | Status |
+|--------------------|------------------------------|--------------------------|--------------------------|--------|
+| GET /items         | Tanpa token                  | 401 Unauthorized         | 401 Unauthorized         | ✅ Pass |
+| GET /items         | Token valid                  | 200 OK + daftar item     | 200 OK + daftar item     | ✅ Pass |
+| POST /items        | Data valid                   | 201 Created              | 201 Created              | ✅ Pass |
+| POST /items        | Field kosong                 | 400 Bad Request          | 400 Bad Request          | ✅ Pass |
+| PUT /items/{id}    | ID valid                     | 200 OK + data diperbarui | 200 OK + data diperbarui | ✅ Pass |
+| PUT /items/{id}    | ID tidak ditemukan           | 404 Not Found            | 404 Not Found            | ✅ Pass |
+| DELETE /items/{id} | ID valid                     | 204 No Content           | 204 No Content           | ✅ Pass |
+| DELETE /items/{id} | ID tidak ditemukan           | 404 Not Found            | 404 Not Found            | ✅ Pass |
+| GET /items/{id}    | Token tidak valid/expired    | 401 Unauthorized         | 401 Unauthorized         | ✅ Pass |
+
+---
