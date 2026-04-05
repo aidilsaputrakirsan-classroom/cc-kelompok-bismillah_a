@@ -1,145 +1,467 @@
-from sqlalchemy.orm import Session
-from sqlalchemy import or_, func
-from models import Item, User
-from schemas import ItemCreate, ItemUpdate, UserCreate
-from auth import hash_password, verify_password
+"""
+LaporIn ITK — CRUD Operations
+Business logic layer: semua operasi database
+"""
+
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import or_, func as sql_func
+from passlib.context import CryptContext
+
+from models import (
+    User, Category, Report, ReportLocation, ReportAttachment,
+    ReportStatusLog, Comment, Notification, Feedback, Unit,
+    ReportAssignment
+)
+from schemas import (
+    UserCreate, ReportCreate, ReportUpdate, ReportLocationCreate,
+    CommentCreate, FeedbackCreate, AssignmentCreate
+)
+
+# Password hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-def create_item(db: Session, item_data: ItemCreate) -> Item:
-    """Buat item baru di database."""
-    db_item = Item(**item_data.model_dump())
-    db.add(db_item)
-    db.commit()
-    db.refresh(db_item)
-    return db_item
+# ============================================================
+# AUTH CRUD
+# ============================================================
+
+def get_password_hash(password: str) -> str:
+    return pwd_context.hash(password)
 
 
-def get_items(db: Session, skip: int = 0, limit: int = 20, search: str = None):
-    """
-    Ambil daftar items dengan pagination & search.
-    - skip: jumlah data yang di-skip (untuk pagination)
-    - limit: jumlah data per halaman
-    - search: cari berdasarkan nama atau deskripsi
-    """
-    query = db.query(Item)
-    
-    if search:
-        query = query.filter(
-            or_(
-                Item.name.ilike(f"%{search}%"),
-                Item.description.ilike(f"%{search}%")
-            )
-        )
-    
-    total = query.count()
-    items = query.order_by(Item.created_at.desc()).offset(skip).limit(limit).all()
-    
-    return {"total": total, "items": items}
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(plain_password, hashed_password)
 
-
-def get_item(db: Session, item_id: int) -> Item | None:
-    """Ambil satu item berdasarkan ID."""
-    return db.query(Item).filter(Item.id == item_id).first()
-
-
-def update_item(db: Session, item_id: int, item_data: ItemUpdate) -> Item | None:
-    """
-    Update item berdasarkan ID.
-    Hanya update field yang dikirim (bukan None).
-    """
-    db_item = db.query(Item).filter(Item.id == item_id).first()
-    
-    if not db_item:
-        return None
-    
-    # Hanya update field yang dikirim (exclude_unset=True)
-    update_data = item_data.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(db_item, field, value)
-    
-    db.commit()
-    db.refresh(db_item)
-    return db_item
-
-
-def delete_item(db: Session, item_id: int) -> bool:
-    """Hapus item berdasarkan ID. Return True jika berhasil."""
-    db_item = db.query(Item).filter(Item.id == item_id).first()
-    
-    if not db_item:
-        return False
-    
-    db.delete(db_item)
-    db.commit()
-    return True
-
-
-def get_stats(db: Session) -> dict:
-    """
-    Ambil statistik inventory menggunakan SQL aggregation.
-    Efisien karena tidak load semua data ke memory.
-    """
-    total_items = db.query(func.count(Item.id)).scalar() or 0
-
-    if total_items == 0:
-        return {
-            "total_items": 0,
-            "total_quantity": 0,
-            "total_value": 0.0,
-            "avg_price": 0.0,
-            "most_expensive": None,
-            "cheapest": None,
-        }
-
-    total_quantity = db.query(func.sum(Item.quantity)).scalar() or 0
-    total_value = db.query(func.sum(Item.price * Item.quantity)).scalar() or 0.0
-    avg_price = db.query(func.avg(Item.price)).scalar() or 0.0
-
-    most_expensive = (
-        db.query(Item.name, Item.price)
-        .order_by(Item.price.desc())
-        .first()
-    )
-    cheapest = (
-        db.query(Item.name, Item.price)
-        .order_by(Item.price.asc())
-        .first()
-    )
-
-    return {
-        "total_items": total_items,
-        "total_quantity": int(total_quantity),
-        "total_value": round(float(total_value), 2),
-        "avg_price": round(float(avg_price), 2),
-        "most_expensive": {"name": most_expensive.name, "price": most_expensive.price} if most_expensive else None,
-        "cheapest": {"name": cheapest.name, "price": cheapest.price} if cheapest else None,
-    }
-
-# ==================== USER CRUD ====================
 
 def create_user(db: Session, user_data: UserCreate) -> User | None:
-    """Buat user baru dengan password yang di-hash."""
-    # Cek apakah email sudah terdaftar
+    """Buat user baru. Return None jika email sudah terdaftar."""
     existing = db.query(User).filter(User.email == user_data.email).first()
     if existing:
-        return None  # Email sudah dipakai
-
-    db_user = User(
+        return None
+    hashed_pw = get_password_hash(user_data.password)
+    user = User(
         email=user_data.email,
-        name=user_data.name,
-        hashed_password=hash_password(user_data.password),
+        nama=user_data.nama,
+        hashed_password=hashed_pw,
+        no_hp=user_data.no_hp,
+        role="user",
     )
-    db.add(db_user)
+    db.add(user)
     db.commit()
-    db.refresh(db_user)
-    return db_user
+    db.refresh(user)
+    return user
+
+
+def get_user_by_id(db: Session, user_id: int) -> User | None:
+    """Ambil user berdasarkan ID."""
+    return db.query(User).filter(User.id == user_id).first()
+
+
+def get_user_by_email(db: Session, email: str) -> User | None:
+    """Ambil user berdasarkan email."""
+    return db.query(User).filter(User.email == email).first()
 
 
 def authenticate_user(db: Session, email: str, password: str) -> User | None:
-    """Autentikasi user: cek email & password."""
-    user = db.query(User).filter(User.email == email).first()
+    """Autentikasi user dengan email dan password."""
+    user = get_user_by_email(db, email)
     if not user:
         return None
     if not verify_password(password, user.hashed_password):
         return None
     return user
+
+
+# ============================================================
+# CATEGORY CRUD
+# ============================================================
+
+def get_categories(db: Session) -> list[Category]:
+    """Ambil semua kategori laporan."""
+    return db.query(Category).order_by(Category.id).all()
+
+
+def get_category(db: Session, kategori_id: int) -> Category | None:
+    return db.query(Category).filter(Category.id == kategori_id).first()
+
+
+def seed_categories(db: Session):
+    """Seed data kategori awal jika belum ada."""
+    if db.query(Category).count() == 0:
+        categories = [
+            Category(nama_kategori="Kehilangan"),
+            Category(nama_kategori="Fasilitas"),
+            Category(nama_kategori="Perundungan"),
+        ]
+        db.add_all(categories)
+        db.commit()
+
+
+# ============================================================
+# UNIT CRUD
+# ============================================================
+
+def get_units(db: Session) -> list[Unit]:
+    """Ambil semua unit penanganan."""
+    return db.query(Unit).order_by(Unit.id).all()
+
+
+def seed_units(db: Session):
+    """Seed data unit awal jika belum ada."""
+    if db.query(Unit).count() == 0:
+        units = [
+            Unit(nama_unit="Sarpras (Sarana & Prasarana)"),
+            Unit(nama_unit="Keamanan Kampus"),
+            Unit(nama_unit="Bimbingan Konseling (BK)"),
+            Unit(nama_unit="Kemahasiswaan"),
+            Unit(nama_unit="Teknologi Informasi (TI)"),
+        ]
+        db.add_all(units)
+        db.commit()
+
+
+# ============================================================
+# REPORT CRUD
+# ============================================================
+
+def create_report(db: Session, report_data: ReportCreate, user_id: int) -> Report:
+    """
+    Buat laporan baru.
+    - Jika kategori Perundungan → otomatis is_sensitive=True dan anonim=True
+    """
+    # Cek kategori perundungan (id=3 atau nama_kategori='Perundungan')
+    category = get_category(db, report_data.kategori_id)
+    is_sensitive = False
+    anonim = report_data.anonim
+
+    if category and category.nama_kategori.lower() == "perundungan":
+        is_sensitive = True
+        anonim = True  # Paksa anonim untuk perundungan
+
+    report = Report(
+        user_id=user_id,
+        judul=report_data.judul,
+        deskripsi=report_data.deskripsi,
+        kategori_id=report_data.kategori_id,
+        lokasi=report_data.lokasi,
+        latitude=report_data.latitude,
+        longitude=report_data.longitude,
+        tanggal_kejadian=report_data.tanggal_kejadian,
+        anonim=anonim,
+        is_sensitive=is_sensitive,
+        status="menunggu",
+        prioritas="sedang",
+    )
+    db.add(report)
+    db.commit()
+    db.refresh(report)
+
+    # Log pembuatan laporan
+    log = ReportStatusLog(
+        report_id=report.id,
+        status="menunggu",
+        changed_by=user_id,
+        catatan="Laporan baru dibuat",
+    )
+    db.add(log)
+
+    # Kirim notifikasi ke user
+    notif = Notification(
+        user_id=user_id,
+        pesan=f"Laporan '{report_data.judul}' berhasil dibuat dan sedang menunggu proses.",
+    )
+    db.add(notif)
+    db.commit()
+
+    # Reload with relationships
+    return db.query(Report).options(
+        joinedload(Report.category),
+        joinedload(Report.locations),
+        joinedload(Report.attachments),
+    ).filter(Report.id == report.id).first()
+
+
+def get_reports(
+    db: Session,
+    skip: int = 0,
+    limit: int = 20,
+    user_id: int | None = None,
+    status: str | None = None,
+    kategori_id: int | None = None,
+    search: str | None = None,
+    is_admin: bool = False,
+):
+    """
+    Ambil daftar laporan dengan filter dan pagination.
+    - user biasa hanya bisa lihat laporannya sendiri
+    - admin bisa lihat semua
+    """
+    query = db.query(Report).options(
+        joinedload(Report.category),
+        joinedload(Report.locations),
+        joinedload(Report.attachments),
+    )
+
+    if not is_admin and user_id:
+        query = query.filter(Report.user_id == user_id)
+
+    if status:
+        query = query.filter(Report.status == status)
+
+    if kategori_id:
+        query = query.filter(Report.kategori_id == kategori_id)
+
+    if search:
+        query = query.filter(
+            or_(
+                Report.judul.ilike(f"%{search}%"),
+                Report.deskripsi.ilike(f"%{search}%"),
+                Report.lokasi.ilike(f"%{search}%"),
+            )
+        )
+
+    total = query.count()
+    reports = query.order_by(Report.created_at.desc()).offset(skip).limit(limit).all()
+
+    return {"total": total, "reports": reports}
+
+
+def get_report(db: Session, report_id: int) -> Report | None:
+    """Ambil satu laporan berdasarkan ID dengan semua relasi."""
+    return db.query(Report).options(
+        joinedload(Report.category),
+        joinedload(Report.locations),
+        joinedload(Report.attachments),
+    ).filter(Report.id == report_id).first()
+
+
+def update_report(
+    db: Session,
+    report_id: int,
+    report_data: ReportUpdate,
+    changed_by: int | None = None,
+) -> Report | None:
+    """
+    Update status/prioritas/detail laporan.
+    Jika status berubah → catat di status_log + kirim notifikasi.
+    """
+    report = db.query(Report).filter(Report.id == report_id).first()
+    if not report:
+        return None
+
+    old_status = report.status
+    update_data = report_data.model_dump(exclude_unset=True)
+
+    for field, value in update_data.items():
+        setattr(report, field, value)
+
+    db.commit()
+    db.refresh(report)
+
+    # Jika status berubah, catat log dan kirim notifikasi
+    new_status = update_data.get("status")
+    if new_status and new_status != old_status:
+        log = ReportStatusLog(
+            report_id=report_id,
+            status=new_status,
+            changed_by=changed_by,
+            catatan=f"Status diubah dari '{old_status}' menjadi '{new_status}'",
+        )
+        db.add(log)
+
+        # Notifikasi ke pelapor
+        status_label = {
+            "menunggu": "sedang menunggu",
+            "diproses": "sedang diproses",
+            "selesai": "telah selesai",
+        }.get(new_status, new_status)
+        notif = Notification(
+            user_id=report.user_id,
+            pesan=f"Status laporan '{report.judul}' {status_label}.",
+        )
+        db.add(notif)
+        db.commit()
+
+    return db.query(Report).options(
+        joinedload(Report.category),
+        joinedload(Report.locations),
+        joinedload(Report.attachments),
+    ).filter(Report.id == report_id).first()
+
+
+# ============================================================
+# REPORT LOCATION (TRACKING) CRUD
+# ============================================================
+
+def add_report_location(
+    db: Session,
+    report_id: int,
+    location_data: ReportLocationCreate,
+) -> ReportLocation:
+    """Tambah titik tracking lokasi ke laporan."""
+    loc = ReportLocation(
+        report_id=report_id,
+        latitude=location_data.latitude,
+        longitude=location_data.longitude,
+        keterangan=location_data.keterangan,
+    )
+    db.add(loc)
+    db.commit()
+    db.refresh(loc)
+    return loc
+
+
+# ============================================================
+# COMMENT CRUD
+# ============================================================
+
+def create_comment(
+    db: Session,
+    report_id: int,
+    user_id: int,
+    comment_data: CommentCreate,
+) -> Comment:
+    """Tambah komentar ke laporan."""
+    comment = Comment(
+        report_id=report_id,
+        user_id=user_id,
+        pesan=comment_data.pesan,
+    )
+    db.add(comment)
+    db.commit()
+    db.refresh(comment)
+
+    # Notifikasi ke user pemilik laporan (jika bukan dia sendiri yang komentar)
+    report = db.query(Report).filter(Report.id == report_id).first()
+    if report and report.user_id != user_id:
+        notif = Notification(
+            user_id=report.user_id,
+            pesan=f"Ada balasan baru pada laporan '{report.judul}'.",
+        )
+        db.add(notif)
+        db.commit()
+
+    return db.query(Comment).options(joinedload(Comment.user)).filter(Comment.id == comment.id).first()
+
+
+def get_comments(db: Session, report_id: int) -> list[Comment]:
+    """Ambil semua komentar dalam satu laporan."""
+    return (
+        db.query(Comment)
+        .options(joinedload(Comment.user))
+        .filter(Comment.report_id == report_id)
+        .order_by(Comment.created_at.asc())
+        .all()
+    )
+
+
+# ============================================================
+# NOTIFICATION CRUD
+# ============================================================
+
+def get_notifications(db: Session, user_id: int, unread_only: bool = False) -> list[Notification]:
+    """Ambil notifikasi user."""
+    query = db.query(Notification).filter(Notification.user_id == user_id)
+    if unread_only:
+        query = query.filter(Notification.status_baca == "unread")
+    return query.order_by(Notification.created_at.desc()).limit(50).all()
+
+
+def mark_notification_read(db: Session, notification_id: int, user_id: int) -> Notification | None:
+    """Tandai notifikasi sebagai sudah dibaca."""
+    notif = db.query(Notification).filter(
+        Notification.id == notification_id,
+        Notification.user_id == user_id,
+    ).first()
+    if not notif:
+        return None
+    notif.status_baca = "read"
+    db.commit()
+    db.refresh(notif)
+    return notif
+
+
+# ============================================================
+# FEEDBACK CRUD
+# ============================================================
+
+def create_feedback(db: Session, feedback_data: FeedbackCreate) -> Feedback:
+    """Submit feedback setelah laporan selesai."""
+    feedback = Feedback(
+        report_id=feedback_data.report_id,
+        rating=feedback_data.rating,
+        komentar=feedback_data.komentar,
+    )
+    db.add(feedback)
+    db.commit()
+    db.refresh(feedback)
+    return feedback
+
+
+# ============================================================
+# ASSIGNMENT CRUD
+# ============================================================
+
+def assign_report(
+    db: Session,
+    report_id: int,
+    assignment_data: AssignmentCreate,
+    admin_id: int,
+) -> ReportAssignment:
+    """Tugaskan laporan ke unit tertentu."""
+    assignment = ReportAssignment(
+        report_id=report_id,
+        unit_id=assignment_data.unit_id,
+    )
+    db.add(assignment)
+    db.commit()
+    db.refresh(assignment)
+
+    # Notifikasi ke pelapor
+    report = db.query(Report).filter(Report.id == report_id).first()
+    unit = db.query(Unit).filter(Unit.id == assignment_data.unit_id).first()
+    if report and unit:
+        notif = Notification(
+            user_id=report.user_id,
+            pesan=f"Laporan '{report.judul}' ditugaskan ke {unit.nama_unit}.",
+        )
+        db.add(notif)
+        db.commit()
+
+    return db.query(ReportAssignment).options(
+        joinedload(ReportAssignment.unit)
+    ).filter(ReportAssignment.id == assignment.id).first()
+
+
+# ============================================================
+# ADMIN DASHBOARD CRUD
+# ============================================================
+
+def get_dashboard_stats(db: Session) -> dict:
+    """Ambil statistik dashboard untuk admin."""
+    total = db.query(Report).count()
+    menunggu = db.query(Report).filter(Report.status == "menunggu").count()
+    diproses = db.query(Report).filter(Report.status == "diproses").count()
+    selesai = db.query(Report).filter(Report.status == "selesai").count()
+
+    # Statistik per kategori
+    kategori_stats = {}
+    for cat in db.query(Category).all():
+        count = db.query(Report).filter(Report.kategori_id == cat.id).count()
+        kategori_stats[cat.nama_kategori] = count
+
+    # Statistik per prioritas
+    prioritas_stats = {
+        "tinggi": db.query(Report).filter(Report.prioritas == "tinggi").count(),
+        "sedang": db.query(Report).filter(Report.prioritas == "sedang").count(),
+        "rendah": db.query(Report).filter(Report.prioritas == "rendah").count(),
+    }
+
+    return {
+        "total_laporan": total,
+        "menunggu": menunggu,
+        "diproses": diproses,
+        "selesai": selesai,
+        "kategori_stats": kategori_stats,
+        "prioritas_stats": prioritas_stats,
+    }
