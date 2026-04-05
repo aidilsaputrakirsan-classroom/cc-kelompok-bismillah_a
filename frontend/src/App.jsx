@@ -1,268 +1,181 @@
-import { useState, useEffect, useCallback } from "react"
-import Header from "./component/Header"
-import SearchBar from "./component/SearchBar"
-import ItemForm from "./component/ItemForm"
-import ItemList from "./component/ItemList"
-import LoginPage from "./component/LoginPage"
-import {
-  fetchItems, createItem, updateItem, deleteItem,
-  checkHealth, login, register, clearToken,
-} from "./services/api"
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { getUser } from "./services/api";
+import Navbar from "./components/Navbar";
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
+import DashboardPage from "./pages/DashboardPage";
+import BuatLaporanPage from "./pages/BuatLaporanPage";
+import DetailLaporanPage from "./pages/DetailLaporanPage";
+import AdminDashboardPage from "./pages/AdminDashboardPage";
 
-function App() {
-  // ==================== AUTH STATE ====================
-  const [user, setUser] = useState(null)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+// ============================================================
+// ROUTE GUARDS
+// ============================================================
 
-  // ==================== APP STATE ====================
-  const [items, setItems] = useState([])
-  const [totalItems, setTotalItems] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [actionLoading, setActionLoading] = useState(false)
-  const [isConnected, setIsConnected] = useState(false)
-  const [editingItem, setEditingItem] = useState(null)
-  const [searchQuery, setSearchQuery] = useState("")
+function RequireAuth({ children }) {
+  const user = getUser();
+  if (!user) return <Navigate to="/login" replace />;
+  return children;
+}
 
-  // ✅ FILTER STATE
-  const [filter, setFilter] = useState("name")
+function RequireAdmin({ children }) {
+  const user = getUser();
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== "admin") return <Navigate to="/dashboard" replace />;
+  return children;
+}
 
-  // ==================== NOTIFICATION ====================
-  const [notification, setNotification] = useState({
-    type: "",
-    message: "",
-  })
+function RequireGuest({ children }) {
+  const user = getUser();
+  if (user) return <Navigate to={user.role === "admin" ? "/admin" : "/dashboard"} replace />;
+  return children;
+}
 
-  const showNotification = (type, message) => {
-    setNotification({ type, message })
-    setTimeout(() => {
-      setNotification({ type: "", message: "" })
-    }, 3000)
-  }
+// ============================================================
+// LANDING PAGE (inline — simple redirect to login)
+// ============================================================
 
-  // ==================== LOAD DATA ====================
-  const loadItems = useCallback(async (search = "") => {
-    setLoading(true)
-    try {
-      const data = await fetchItems(search)
-      setItems(data.items)
-      setTotalItems(data.total)
-    } catch (err) {
-      if (err.message === "UNAUTHORIZED") {
-        handleLogout()
-      } else {
-        showNotification("error", "Gagal memuat data")
-      }
-      console.error(err)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    checkHealth().then(setIsConnected)
-  }, [])
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      loadItems()
-    }
-  }, [isAuthenticated, loadItems])
-
-  // ==================== SORTING FUNCTION ====================
-  const getSortedItems = () => {
-    let sorted = [...items]
-
-    if (filter === "name") {
-      sorted.sort((a, b) => a.name.localeCompare(b.name))
-    } else if (filter === "price") {
-      sorted.sort((a, b) => a.price - b.price)
-    } else if (filter === "newest") {
-      sorted.sort((a, b) => b.id - a.id)
-    }
-
-    return sorted
-  }
-
-  // ==================== AUTH ====================
-  const handleLogin = async (email, password) => {
-    try {
-      const data = await login(email, password)
-      setUser(data.user)
-      setIsAuthenticated(true)
-      showNotification("success", "Login berhasil")
-    } catch (err) {
-      const message = err?.message || "Login gagal"
-      showNotification("error", message)
-      throw new Error(message)
-    }
-  }
-
-  const handleRegister = async (userData) => {
-    try {
-      await register(userData)
-      await handleLogin(userData.email, userData.password)
-      showNotification("success", "Register berhasil")
-    } catch (err) {
-      const message = err?.message || "Register gagal"
-      showNotification("error", message)
-      throw new Error(message)
-    }
-  }
-
-  const handleLogout = () => {
-    clearToken()
-    setUser(null)
-    setIsAuthenticated(false)
-    setItems([])
-    setTotalItems(0)
-    setEditingItem(null)
-    setSearchQuery("")
-    showNotification("success", "Logout berhasil")
-  }
-
-  // ==================== ITEM ====================
-  const handleSubmit = async (itemData, editId) => {
-    setActionLoading(true)
-    try {
-      if (editId) {
-        await updateItem(editId, itemData)
-        setEditingItem(null)
-        showNotification("success", "Item berhasil diupdate")
-      } else {
-        await createItem(itemData)
-        showNotification("success", "Item berhasil ditambahkan")
-      }
-      loadItems(searchQuery)
-    } catch (err) {
-      if (err.message === "UNAUTHORIZED") handleLogout()
-      else showNotification("error", err.message || "Gagal menyimpan data")
-      throw err
-    } finally {
-      setActionLoading(false)
-    }
-  }
-
-  const handleEdit = (item) => {
-    setEditingItem(item)
-    window.scrollTo({ top: 0, behavior: "smooth" })
-  }
-
-  const handleDelete = async (id) => {
-    const item = items.find((i) => i.id === id)
-    if (!window.confirm(`Yakin ingin menghapus "${item?.name}"?`)) return
-
-    setActionLoading(true)
-    try {
-      await deleteItem(id)
-      showNotification("success", "Item berhasil dihapus")
-      loadItems(searchQuery)
-    } catch (err) {
-      if (err.message === "UNAUTHORIZED") handleLogout()
-      else showNotification("error", err.message || "Gagal menghapus data")
-    } finally {
-      setActionLoading(false)
-    }
-  }
-
-  const handleSearch = (query) => {
-    setSearchQuery(query)
-    loadItems(query)
-  }
-
-  // ==================== RENDER ====================
-  if (!isAuthenticated) {
-    return <LoginPage onLogin={handleLogin} onRegister={handleRegister} />
-  }
+function LandingPage() {
+  const user = getUser();
+  if (user) return <Navigate to={user.role === "admin" ? "/admin" : "/dashboard"} replace />;
 
   return (
-    <div style={styles.app}>
-      <div style={styles.container}>
+    <div style={{ minHeight: "100vh", background: "linear-gradient(135deg, #1e3a8a, #2563eb, #7c3aed)" }}>
+      <div style={{
+        display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center",
+        minHeight: "100vh", color: "white", textAlign: "center",
+        padding: "2rem",
+      }}>
+        <div style={{
+          width: 80, height: 80,
+          background: "rgba(255,255,255,0.2)",
+          borderRadius: 20,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 40, marginBottom: "1.5rem",
+          backdropFilter: "blur(10px)",
+        }}>📋</div>
 
-        {/* NOTIFICATION */}
-        {notification.message && (
-          <div style={styles.notification(notification.type)}>
-            {notification.message}
-          </div>
-        )}
+        <h1 style={{ fontSize: "clamp(2rem, 5vw, 3.5rem)", fontWeight: 900, margin: "0 0 1rem" }}>
+          LaporIn ITK
+        </h1>
+        <p style={{ fontSize: "1.25rem", opacity: 0.85, marginBottom: "3rem", maxWidth: 560 }}>
+          Platform pelaporan digital untuk civitas Institut Teknologi Kalimantan —
+          aman, transparan, dan efisien.
+        </p>
 
-        {/* SPINNER */}
-        {actionLoading && <div style={styles.spinner}></div>}
-
-        <Header
-          totalItems={totalItems}
-          isConnected={isConnected}
-          user={user}
-          onLogout={handleLogout}
-        />
-
-        <ItemForm
-          onSubmit={handleSubmit}
-          editingItem={editingItem}
-          onCancelEdit={() => setEditingItem(null)}
-          loading={actionLoading}
-        />
-
-        <SearchBar onSearch={handleSearch} />
-
-        {/* ✅ DROPDOWN FILTER */}
-        <div style={{ margin: "10px 0" }}>
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            style={{
-              padding: "8px",
-              borderRadius: "5px",
-              border: "1px solid #ccc",
-            }}
-          >
-            <option value="name">Urutkan: Nama</option>
-            <option value="price">Urutkan: Harga</option>
-            <option value="newest">Urutkan: Terbaru</option>
-          </select>
+        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", justifyContent: "center", marginBottom: "4rem" }}>
+          {[
+            { icon: "🔍", label: "Kehilangan Barang" },
+            { icon: "🏗️", label: "Kerusakan Fasilitas" },
+            { icon: "🛡️", label: "Perundungan" },
+          ].map((f) => (
+            <div key={f.label} style={{
+              background: "rgba(255,255,255,0.15)",
+              backdropFilter: "blur(10px)",
+              padding: "1rem 1.5rem",
+              borderRadius: 12,
+              fontSize: "1rem",
+              display: "flex", alignItems: "center", gap: "0.75rem",
+              border: "1px solid rgba(255,255,255,0.2)",
+            }}>
+              <span style={{ fontSize: "1.5rem" }}>{f.icon}</span>
+              {f.label}
+            </div>
+          ))}
         </div>
 
-        <ItemList
-          items={getSortedItems()}   // ✅ pakai hasil sorting
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          loading={loading}
-        />
+        <div style={{ display: "flex", gap: "1rem" }}>
+          <a
+            href="/login"
+            style={{
+              padding: "0.875rem 2.5rem",
+              background: "white",
+              color: "#2563eb",
+              borderRadius: 10,
+              fontWeight: 700,
+              fontSize: "1rem",
+              textDecoration: "none",
+              transition: "transform 0.2s",
+            }}
+          >
+            Masuk
+          </a>
+          <a
+            href="/register"
+            style={{
+              padding: "0.875rem 2.5rem",
+              background: "rgba(255,255,255,0.2)",
+              color: "white",
+              borderRadius: 10,
+              fontWeight: 700,
+              fontSize: "1rem",
+              textDecoration: "none",
+              border: "2px solid rgba(255,255,255,0.4)",
+            }}
+          >
+            Daftar Sekarang
+          </a>
+        </div>
       </div>
     </div>
-  )
+  );
 }
 
-const styles = {
-  app: {
-    minHeight: "100vh",
-    backgroundColor: "#f0f2f5",
-    padding: "2rem",
-    fontFamily: "'Segoe UI', Arial, sans-serif",
-  },
+// ============================================================
+// APP
+// ============================================================
 
-  container: {
-    maxWidth: "900px",
-    margin: "0 auto",
-  },
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* Public — Guest only */}
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={
+          <RequireGuest><LoginPage /></RequireGuest>
+        } />
+        <Route path="/register" element={
+          <RequireGuest><RegisterPage /></RequireGuest>
+        } />
 
-  notification: (type) => ({
-    padding: "12px",
-    marginBottom: "12px",
-    borderRadius: "6px",
-    color: "#fff",
-    textAlign: "center",
-    backgroundColor: type === "success" ? "#28a745" : "#dc3545",
-  }),
+        {/* Protected — User */}
+        <Route path="/dashboard" element={
+          <RequireAuth>
+            <Navbar />
+            <DashboardPage />
+          </RequireAuth>
+        } />
+        <Route path="/laporan/buat" element={
+          <RequireAuth>
+            <Navbar />
+            <BuatLaporanPage />
+          </RequireAuth>
+        } />
+        <Route path="/laporan/:id" element={
+          <RequireAuth>
+            <Navbar />
+            <DetailLaporanPage />
+          </RequireAuth>
+        } />
 
-  spinner: {
-    width: "40px",
-    height: "40px",
-    border: "5px solid #ccc",
-    borderTop: "5px solid #007bff",
-    borderRadius: "50%",
-    animation: "spin 50s linear infinite",
-    margin: "10px auto",
-  },
+        {/* Protected — Admin */}
+        <Route path="/admin" element={
+          <RequireAdmin>
+            <Navbar />
+            <AdminDashboardPage />
+          </RequireAdmin>
+        } />
+        <Route path="/admin/laporan" element={
+          <RequireAdmin>
+            <Navbar />
+            <AdminDashboardPage />
+          </RequireAdmin>
+        } />
+
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
+  );
 }
-
-export default App
