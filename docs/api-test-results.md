@@ -1,6 +1,6 @@
 # Dokumentasi Hasil Testing Semua Endpoint Via Swagger/Thunder Client
 
-Kegiatan ini merupakan pengujian _endpoint_ API menggunakan **Swagger UI** untuk memastikan setiap layanan API pada sistem berjalan dengan baik sesuai fungsinya. API memungkinkan aplikasi saling berkomunikasi dan bertukar data, seperti menambah, menampilkan, memperbarui, dan menghapus data dalam database. Melalui Swagger UI, pengembang dapat melihat dokumentasi API, mengirim permintaan ke server, serta melihat respons sistem secara langsung untuk memastikan proses pengolahan data berjalan dengan benar.
+Kegiatan ini merupakan pengujian _endpoint_ API menggunakan **Swagger UI** untuk memastikan setiap layanan API pada sistem LaporIn ITK berjalan dengan baik sesuai fungsinya. API memungkinkan aplikasi frontend saling berkomunikasi dan bertukar data dengan backend, seperti melakukan autentikasi, menambah laporan, menampilkan, memperbarui status tiket, dan fitur lainnya. Melalui Swagger UI, pengembang dapat melihat dokumentasi API secara lengkap, mengirim permintaan uji coba ke server, serta melihat respons sistem secara langsung.
 
 ---
 
@@ -9,99 +9,99 @@ Kegiatan ini merupakan pengujian _endpoint_ API menggunakan **Swagger UI** untuk
 Base URL: `http://localhost:8000`  
 Dokumentasi interaktif: `http://localhost:8000/docs`
 
-| Method   | Endpoint            | Deskripsi                                         | Status Code     |
-| -------- | ------------------- | ------------------------------------------------- | --------------- |
-| `GET`    | `/health`           | Health check API untuk memastikan server berjalan | 200             |
-| `GET`    | `/team`             | Menampilkan informasi anggota tim                 | 200             |
-| `POST`   | `/items`            | Menambahkan data item baru                        | 201 / 422       |
-| `GET`    | `/items`            | Mengambil daftar item (pagination + search)       | 200 / 422       |
-| `GET`    | `/items/stats`      | Menampilkan statistik data item                   | 200             |
-| `GET`    | `/items/{item_id}`  | Mengambil satu item berdasarkan ID                | 200 / 404 / 422 |
-| `PUT`    | `/items/{item_id}`  | Memperbarui data item berdasarkan ID              | 200 / 404 / 422 |
-| `DELETE` | `/items/{ittem_id}` | Menghapus item berdasarkan ID                     | 204 / 404       |
+| Method   | Endpoint                      | Deskripsi                                         | Status Code     |
+| -------- | ----------------------------- | ------------------------------------------------- | --------------- |
+| `GET`    | `/health`                     | Health check API untuk memastikan server berjalan | 200             |
+| `POST`   | `/auth/login`                 | Endpoint login untuk mendapatkan token JWT        | 200 / 401       |
+| `POST`   | `/reports`                    | Menambahkan data laporan baru (user)              | 201 / 422       |
+| `GET`    | `/reports`                    | Mengambil daftar laporan (pagination + filter)    | 200 / 422       |
+| `GET`    | `/reports/{report_id}`        | Mengambil detail satu laporan berdasarkan ID      | 200 / 403 / 404 |
+| `PUT`    | `/admin/reports/{report_id}`  | Memperbarui status/prioritas laporan (Admin)      | 200 / 404 / 422 |
+| `POST`   | `/reports/{id}/comments`      | Menambahkan komentar/balasan pada laporan         | 201 / 403 / 404 |
+| `GET`    | `/admin/stats`                | Menampilkan statistik laporan di dashboard admin  | 200 / 403       |
 
 ---
 
-### 1. Proses Mengirim Request POST untuk Menambahkan Data
+### 1. Proses Mengirim Request POST untuk Menambahkan Data Laporan
 
-<img src="image/1.png" />
+<img src="image/1.jpeg" />
 
-Gambar ini menampilkan fitur untuk membuat data item baru melalui _endpoint_ **POST /items** di Swagger UI. Pengguna perlu mengisi beberapa data seperti **name** (nama barang), **price** (harga), **description** (deskripsi, opsional), dan **quantity** (jumlah stok). Pada bagian **request body** ditampilkan contoh data dalam format JSON. Setelah data diisi, pengguna dapat menekan tombol **Execute** untuk mengirim permintaan ke server agar data item diproses dan disimpan.
+Gambar ini menampilkan fitur untuk membuat laporan pelanggaran, kehilangan, atau kerusakan fasilitas baru melalui _endpoint_ **POST /reports** di Swagger UI. Pengguna yang sudah login perlu mengisi beberapa data seperti **judul** laporan, **deskripsi** rinci kejadian, **kategori_id** (tipe laporan), dan **lokasi**. Pada bagian **request body** ditampilkan contoh data dalam format JSON. Setelah parameter diisi, pengguna menekan tombol **Execute** untuk mengirim masukan ke server LaporIn ITK.
 
-<img src="image/2.png" />
+<img src="image/2.jpeg" />
 
-Gambar ini menunjukkan hasil setelah permintaan pengiriman data dilakukan. Pada bagian ini terlihat contoh perintah **cURL** yang dapat digunakan untuk melakukan request yang sama melalui terminal. Selain itu, terdapat Request URL yang menunjukkan alamat endpoint API yang digunakan, yaitu `http://localhost:8000/items`. Server kemudian memberikan **response code 201**, yang berarti data berhasil dibuat atau disimpan di server. Pada bagian **response body** ditampilkan kembali data item yang telah berhasil disimpan, lengkap dengan informasi tambahan seperti `id`, `created_at`, dan `updated_at`. Hal ini menandakan bahwa sistem telah memproses data yang dikirim dan menyimpannya di database.
+Gambar ini menunjukkan hasil setelah permintaan pengiriman data laporan dilakukan. Terlihat perintah **cURL** untuk mereplikasi permintaan, beserta URL `http://localhost:8000/reports`. Server memberikan **response code 201**, yang berarti data laporan berhasil dibuat di sisi server. Pada bagian **response body**, ditampilkan kembalian data laporan yang baru saja tersimpan di database, dilengkapi dengan `id` laporan, `status` awal (biasanya menunggu), dan penanda waktu `created_at`. 
 
-<img src="image/3.png" />
+<img src="image/3.jpeg" />
 
-Gambar ini menampilkan dokumentasi mengenai kemungkinan respons yang diberikan oleh API. Pada bagian **201 Successful Response**, ditunjukkan contoh format data yang akan diterima pengguna jika proses penambahan item berhasil. Data tersebut meliputi nama item, deskripsi, harga, jumlah stok, serta waktu pembuatan data. Selain itu, terdapat juga bagian **422 Validation Error**, yaitu respons yang muncul jika data yang dikirim tidak sesuai dengan ketentuan yang telah ditetapkan, misalnya ada field yang kosong atau format data tidak sesuai. Bagian ini membantu pengguna memahami bagaimana sistem memberikan respons baik ketika proses berhasil maupun ketika terjadi kesalahan input data.
-
----
-
-### 2. Proses Mengirim Request GET untuk Mengambil Daftar Data
-
-<img src="image/4.png" />
-
-Gambar ini menampilkan dokumentasi API di Swagger UI untuk _endpoint_ **GET /items** yang digunakan mengambil daftar data item. _Endpoint_ ini mendukung fitur _pagination_ dan pencarian dengan parameter **skip** (jumlah data yang dilewati), **limit** (jumlah maksimal data yang ditampilkan), dan **search** (pencarian berdasarkan nama atau deskripsi). Setelah parameter diisi, pengguna dapat menekan **Execute** untuk mengirim permintaan dan menampilkan data item sesuai parameter.
-
-<img src="image/5.png" />
-
-Gambar ini menampilkan hasil permintaan data menggunakan _endpoint_ **GET /items**. Di halaman ini terdapat contoh perintah **cURL**, **Request URL** `http://localhost:8000/items`, serta parameter seperti _skip_, _limit_, dan _search_. Server memberikan **response code 200** yang menandakan permintaan berhasil. Pada **response body** ditampilkan data item dalam format JSON yang memuat informasi seperti _name_, _description_, _price_, _quantity_, serta waktu `created_at` dan `updated_at`. Ini menunjukkan bahwa sistem berhasil mengambil data sesuai permintaan pengguna.
-
-<img src="image/6.png" />
-
-Gambar ini menampilkan dokumentasi respons API untuk _endpoint_ **GET /items**. Bagian **200 Successful Response** menunjukkan contoh data yang diterima jika permintaan berhasil, berisi total item dan informasi item seperti nama, deskripsi, harga, stok, serta waktu pembuatan atau pembaruan. Sedangkan **422 Validation Error** muncul jika parameter yang dikirim tidak valid atau tidak sesuai ketentuan sistem.
+Gambar ini menunjukkan dokumentasi tentang ketentuan respons dari API. Pada bagian **201 Successful Response**, terlihat skema data kembalian jika laporan berhasil diterima. Selain itu, ada dokumentasi untuk **422 Validation Error**, yang akan dikembalikan oleh sistem jika pengguna mengirimkan format yang salah (misalnya tipe data `kategori_id` berupa string padahal seharusnya integer, atau parameter wajib tidak diisi).
 
 ---
 
-### 3. Proses Mengambil Satu Data Berdasarkan ID
+### 2. Proses Mengirim Request GET untuk Mengambil Daftar Laporan
 
-<img src="image/7.png" />
+<img src="image/4.jpeg" />
 
-Gambar ini menampilkan dokumentasi API di Swagger UI untuk endpoint GET /items/{item_id} yang digunakan mengambil satu data item berdasarkan ID. Pada bagian Parameters, pengguna harus memasukkan nilai item_id sebagai parameter wajib. Setelah diisi, pengguna dapat menekan tombol Execute untuk mengirim permintaan ke server dan menampilkan data item sesuai ID yang dimasukkan.
+Gambar dokumentasi Swagger UI untuk _endpoint_ **GET /reports** ini digunakan untuk mengambil seluruh daftar laporan. _Endpoint_ ini mendukung fitur _pagination_ dan pencarian dengan berbagai parameter seperti **skip** (offset halaman), **limit** (jumlah laporan maksimal), **status**, **kategori_id**, serta opsi **search**. Setelah parameter disesuaikan atau dibiarkan secara default, pengguna dapat menekan **Execute**.
 
-<img src="image/8.png" />
+<img src="image/5.jpeg" />
 
-Gambar ini menampilkan hasil permintaan melalui _endpoint_ **GET /items/{item_id}**. Ditampilkan contoh perintah **cURL** dan **Request URL** `http://localhost:8000/items/1`. Server memberikan **response code 404 (Not Found)** yang berarti data dengan ID tersebut tidak ditemukan. Pada **response body** muncul pesan JSON yang menjelaskan bahwa item dengan ID tersebut tidak tersedia di sistem.
+Gambar ini adalah contoh hasil pengambilan laporan dari server. Server merespons dengan **code 200**, menandakan operasi pengambilan daftar laporan berjalan lancar. Pada bagian **response body**, disajikan struktur berbentuk array format JSON yang berisi kumpulan laporan dengan nilai informasi selengkapnya (kategori, status terkini, penulis laporan beserta deskripsinya).
 
-<img src="image/9.png" />
+<img src="image/6.jpeg" />
 
-Gambar ini menampilkan dokumentasi respons API untuk _endpoint_ **GET /items/{item_id}**. Bagian **200 Successful Response** menunjukkan contoh data yang diterima jika item berhasil ditemukan, seperti _name_, _description_, _price_, _quantity_, serta waktu `created_at` dan `updated_at`. Sedangkan **422 Validation Error** muncul jika parameter yang dikirim tidak valid atau tidak sesuai ketentuan sistem.
-
----
-
-### 4. Proses Memperbarui Data Menggunakan PUT
-
-<img src="image/10.png" />
-
-Gambar ini menampilkan dokumentasi API di Swagger UI untuk _endpoint_ **PUT /items/{item_id}** yang digunakan memperbarui data item berdasarkan ID. Pengguna harus memasukkan **item_id** pada bagian **Parameters** dan data yang ingin diubah pada **Request body** dalam format JSON. _Endpoint_ ini mendukung **partial update**, sehingga hanya _field_ tertentu yang diperbarui, seperti contoh perubahan **price**. Setelah itu, pengguna menekan **Execute** untuk mengirim permintaan pembaruan ke server.
-
-<img src="image/11.png" />
-
-Gambar ini menampilkan hasil permintaan pembaruan data melalui _endpoint_ **PUT /items/{item_id}**. Ditampilkan contoh perintah **cURL** dan **Request URL** `http://localhost:8000/items/1`. Server memberikan **response code 200** yang menandakan pembaruan berhasil. Pada **response body** ditampilkan data item yang telah diperbarui dalam format JSON, termasuk _name_, _description_, _price_, _quantity_, serta waktu `created_at` dan `updated_at`, dengan nilai _price_ yang sudah berubah sesuai pembaruan.
-
-<img src="image/12.png" />
-
-Gambar ini menampilkan dokumentasi respons API untuk _endpoint_ **PUT /items/{item_id}**. Bagian **200 Successful Response** menunjukkan contoh data yang diterima jika pembaruan berhasil, berisi informasi item seperti _name_, _description_, _price_, _quantity_, serta waktu `created_at` dan `updated_at`. Sedangkan **422 Validation Error** muncul jika data yang dikirim tidak valid atau tidak sesuai dengan aturan sistem.
+Ini adalah panduan dokumentasi Swagger terkait `Response body` yang dikembalikan, di mana _200 Successful Response_ menjelaskan struktur array data laporan yang sukses dikembalikan dari server.
 
 ---
 
-### 5. Proses Menghapus Data Menggunakan DELETE
+### 3. Proses Mengambil Detail Satu Laporan Berdasarkan ID
 
-<img src="image/13.png" />
+<img src="image/7.jpeg" />
 
-Gambar ini menampilkan dokumentasi API di Swagger UI untuk _endpoint_ **DELETE /items/{item_id}** yang digunakan menghapus data item berdasarkan ID. Pengguna harus memasukkan **item_id** pada bagian **Parameters** sebagai identitas item yang akan dihapus. Setelah itu, pengguna dapat menekan tombol **Execute** untuk mengirim permintaan ke server agar sistem memproses penghapusan data.
+Gambar ini menunjukkan parameter input untuk _endpoint_ **GET /reports/{report_id}** guna memanggil detail satu data laporan saja. Di sini, **report_id** merupakan parameter wajib.
 
-<img src="image/14.png" />
+<img src="image/8.jpeg" />
 
-Gambar ini menampilkan hasil permintaan penghapusan data melalui _endpoint_ **DELETE /items/{item_id}**. Ditampilkan contoh perintah **cURL** dan **Request URL** `http://localhost:8000/items/1`. Server memberikan **response code 204** yang menandakan penghapusan berhasil dan tidak ada konten pada **response body**. Pada **response headers** juga ditampilkan informasi tambahan terkait respons dari server.
+Gambar ini menyimulasikan hasil permintaan apabila `report_id` yang dimasukkan salah, tidak ditemukan, atau pengguna tidak memiliki wewenang untuk mengakses data laporan dari pengguna lain. Server dapat memberikan **response code 404 (Not Found)** atau **403 (Forbidden)** sebagai bentuk proteksi data. Pada tangkapan layar, detail pesan JSON akan menerangkan mengapa akses ditolak.
+
+<img src="image/9.jpeg" />
+
+Dokumentasi bentuk struktur respons yang sesuai dari **GET /reports/{report_id}**. Berisi rincian informasi laporan tunggal jika status kode adalah **200**, atau `ValidationError` dan notifikasi `Not Found` pada kondisi sebaliknya.
 
 ---
 
-### 6. Menampilkan Statistik Data
+### 4. Proses Memperbarui Laporan (Admin Update Status)
 
-<img src="image/15.png" />
+<img src="image/10.jpeg" />
 
-Gambar ini menampilkan halaman dokumentasi API pada Swagger UI untuk _endpoint_ **GET /items/stats** yang digunakan untuk menampilkan statistik data item yang tersimpan dalam sistem. _Endpoint_ ini berfungsi untuk memberikan ringkasan informasi mengenai data item yang tersimpan di dalam sistem. Pada bagian **Parameters** terlihat bahwa _endpoint_ ini tidak memerlukan parameter tambahan, sehingga pengguna cukup menekan tombol **Execute** untuk menjalankan permintaan ke server.
+_Endpoint_ pembaruan (**PUT /admin/reports/{report_id}**) ini digunakan khusus untuk pihak admin untuk mengelola tahapan penanganan laporan, seperti mengubah _status_ dari "menunggu" menjadi "diproses" atau "selesai", serta menetapkan label _prioritas_. Pada Swagger, parameter `report_id` disertakan bersama **request body** pembaruannya dalam format JSON.
 
-Setelah permintaan dijalankan, sistem menampilkan bagian **cURL** yang menunjukkan contoh perintah yang dapat digunakan untuk melakukan request melalui terminal. Selain itu, terdapat Request URL yang memperlihatkan alamat endpoint yang digunakan, yaitu `http://127.0.0.1:8000/items/stats`. Server kemudian memberikan **response code 200**, yang menandakan bahwa permintaan berhasil diproses. Hasil respons ditampilkan dalam format JSON yang berisi beberapa informasi statistik, yaitu `total_items` yang menunjukkan jumlah keseluruhan item yang tersimpan sebanyak 3, serta `total_value` yang menunjukkan total nilai seluruh barang sebesar 8.460.000. Selain itu, sistem juga menampilkan informasi mengenai barang dengan harga paling mahal (_most_expensive_) yaitu Laptop dengan harga 1.400.000, serta barang dengan harga paling murah (_cheapest_) yaitu _Mouse Wireless_ dengan harga 250.000. Informasi ini membantu pengguna untuk melihat ringkasan item yang tersimpan secara cepat dan terstruktur melalui satu _endpoint_ API.
+<img src="image/11.jpeg" />
+
+Ini menunjukkan hasil kembalian dari fitur admin setelah proses pembaruan berhasil dikirim. Melalui **code 200**, nilai balikan API memperlihatkan histori `status` laporan yang kini sudah dimutakhirkan, sehingga integrasinya dengan aplikasi/UI akan sejalan dengan perkembangan penyelesaian dari admin ITK.
+
+<img src="image/12.jpeg" />
+
+Gambar ini menampilkan dokumentasi standar terhadap kondisi validasi ketika admin ingin memproses pembaruan melalui instrumen `PUT`. Hal ini merinci struktur apa saja yang diizinkan untuk diubah, dengan ketentuan berhasil (200), atau gagal divalidasi apabila kurang tepat.
+
+---
+
+### 5. Proses Memberikan Komentar pada Laporan
+
+<img src="image/13.jpeg" />
+
+Pada bagian ini, diilustrasikan kegunaan dari _endpoint_ **POST /reports/{report_id}/comments**, yang memfasilitasi diskusi tambahan antara unit penanganan / pihak admin dengan pelapor pada suatu _thread_ riwayat kasus laporan.
+
+<img src="image/14.jpeg" />
+
+Sistem merespons dengan kode HTTP **201**, memastikan bahwa tanggapan atau komentar berjalur komunikasi tersebut sukses direkam oleh entitas database dengan merujuk pada `report_id` yang saling berkaitan.
+
+---
+
+### 6. Menampilkan Statistik Data Laporan Admin
+
+<img src="image/15.jpeg" />
+
+Gambar ini beralih pada dokumentasi untuk _endpoint_ **GET /admin/stats**. _Endpoint_ ini menjadi tumpuan bagi elemen _dashboard_ aplikasi front end dalam menyodorkan metrik laporan kuantitatif pada sistem LaporIn ITK, seperti jumlah laporan yang masuk, menunggu, dan selesai.
+
+Sistem menampilkan riwayat proses melalui **cURL.** Kemudian, server memberikan respons **200**, yang menandakan kalkulasi berhasil diproses. Output data JSON yang diperlihatkan menyajikan berbagai ringkasan statistik krusial—mulai dari `total_reports`, ringkasan agregasi grup berdasarkan penanganan status, jumlah rata-rata unit, serta klasifikasi informasi lainnya sebagai alat ukur efisiensi administrasi laporan.

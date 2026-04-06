@@ -38,7 +38,7 @@ Authorization: Bearer <token>
 {
   "email": "user@student.itk.ac.id",
   "nama": "Nama Lengkap",
-  "password": "Cloud@123",
+  "passwo/rd": "Cloud@123",
   "no_hp": "08123456789"
 }
 ```

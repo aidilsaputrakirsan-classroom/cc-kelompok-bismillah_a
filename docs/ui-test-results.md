@@ -1,6 +1,6 @@
 # User Interface Testing Results
 
-Kegiatan ini bertujuan untuk melakukan pengujian terhadap antarmuka pengguna (UI) dengan menjalankan seluruh alur fitur pada aplikasi guna memastikan setiap fungsi dapat berjalan dengan baik, memastikan bahwa integrasi antara frontend dan API berjalan dengan benar serta seluruh fitur CRUD dapat digunakan tanpa kesalahan. Pengujian dilakukan dengan mensimulasikan aktivitas pengguna seperti membuka aplikasi, menambahkan data, mengedit data, mencari data, hingga menghapus data. 
+Kegiatan ini bertujuan untuk melakukan pengujian terhadap antarmuka pengguna (UI) LaporIn ITK dengan menjalankan seluruh alur fitur pada aplikasi guna memastikan setiap fungsi dapat berjalan dengan baik. Pengujian ini difokuskan untuk menilai efektivitas integrasi antara frontend dan API backend FastAPI serta memvalidasi keandalan sistem dalam proses autentikasi (login/register) serta siklus manajemen pelaporan (mulai saat pengguna mengajukan laporan, hingga diproses oleh admin, dan dimutakhirkan rincian datanya). 
 
 ---
 
@@ -12,129 +12,129 @@ Jumlah skenario pengujian : 10
 |------|------|
 | 10   | 0    | 
 
-Berdasarkan hasil pengujian yang dilakukan, seluruh fitur aplikasi dapat berjalan dengan baik sesuai dengan yang diharapkan.
+Berdasarkan hasil pengujian yang dilakukan, seluruh fitur aplikasi LaporIn ITK dapat termuat dengan benar dan berjalan dengan baik sesuai dengan kebutuhan fungsionalitas sistem pelaporan.
 
 ---
 
 ## Daftar Skenario Pengujian
 
-### 1. Cek Koneksi API
+### 1. Cek Koneksi Sistem LaporIn (Status Layanan)
 
-**Tujuan :** Pengujian ini bertujuan untuk memastikan aplikasi dapat dijalankan melalui browser dan berhasil terhubung dengan backend API.
+**Tujuan :** Pengujian ini bertujuan untuk memastikan aplikasi frontend dapat dijalankan secara fungsional melalui browser dan berhasil terhubung secara sinkron dengan backend API.
 
 **Hasil :** 
 
 <img src="image/apiconnect.jpeg" />
 
-Berdasarkan hasil pengujian, halaman utama aplikasi berhasil ditampilkan dengan indikator API Connected pada bagian header, yang menandakan bahwa koneksi antara frontend dan backend telah berjalan dengan baik.
+Berdasarkan hasil pengujian, aplikasi berhasil diakses tanpa isu _Network Error_. Hal ini menunjukkan bahwa koneksi jaringan antara komponen frontend dan server backend FastAPI telah tersambung sepenuhnya dan siap melayani pertukaran data login maupun pengiriman laporan.
 
 ---
 
-### 2. Menampilkan Daftar Item
+### 2. Menampilkan Daftar Laporan (Dashboard)
 
-**Tujuan :** Pengujian ini bertujuan untuk memastikan item yang tersimpan di database dapat ditampilkan pada halaman utama aplikasi.
+**Tujuan :** Pengujian ini bertujuan untuk membuktikan bahwa data laporan yang sebelumya disubmit di database dapat ditarik (fetch) dan divisualisasikan dengan tepat pada halaman _dashboard_ aplikasi.
 
 **Hasil :** 
 
 <img src="image/items.jpeg" />
 
-Berdasarkan hasil pengujian, beberapa item seperti Keyboard Mechanical, Laptop, dan Mouse Wireless berhasil ditampilkan dalam bentuk kartu yang berisi nama item, harga, deskripsi, jumlah stok, serta tombol Edit dan Hapus. Hal ini menunjukkan bahwa data dari database berhasil dimuat dan ditampilkan pada daftar item di aplikasi.
+Sesuai hasil observasi pengujian, riwayat pelaporan historis (seperti Laporan Kerusakan Infrastruktur atau Laporan Kehilangan) berhasil muncul dan dirinci dengan kartu antarmuka (_view card_). Elemen responsif berupa judul laporan, deskripsi singkat, kategori, status berjalan (misal: "Menunggu" atau "Diproses"), dan keterangan lokasi ditampilkan dengan presisi untuk menyajikan laporan secara sistematis.
 
 ---
 
-### 3. Menambahkan Item Baru
+### 3. Pembuatan Laporan Aduan Baru
 
-**Tujuan :** Pengujian ini bertujuan untuk memastikan fitur penambahan item melalui form pada halaman aplikasi dapat digunakan untuk menyimpan data item baru ke dalam sistem.
+**Tujuan :** Pengujian ini mengevaluasi kelancaran pengguna baru yang ingin mengajukan aduan pelaporan sistem secara langsung lewat _form_ pengisian yang dirancang.
 
 **Hasil :** 
 
 <img src="image/tambah.jpeg" />
 
-Berdasarkan pengujian yang dilakukan, form Tambah Item Baru berhasil diisi dengan data item berupa nama Hp, harga 200000, deskripsi baru, dan jumlah stok 5. Kemudian, data tersebut dikirim melalui tombol Tambah Item untuk menunjukkan bahwa form penambahan item dapat digunakan dengan baik.
+Formulir buat laporan sanggup diisi dengan mulus. Pengguna dapat memilih tipe kategori (Fasilitas, Kehilangan, dsb.), mencatat detail kejadian pada input kotak rincian deskripsi, hingga mendefinisikan letak ruangannya. Alur submit dipicu melalui komponen tombol Buat Laporan untuk menjamin pelapor tak mengalami distorsi sistem rror.
 
 ---
 
-### 4. Memastikan Item Baru Muncul di Daftar
+### 4. Memastikan Laporan Terarsip Ke Daftar
 
-**Tujuan :** Pengujian ini bertujuan untuk memastikan item yang baru ditambahkan melalui form berhasil disimpan dan ditampilkan pada daftar item di halaman aplikasi.
+**Tujuan :** Memverifikasi apakah laporan yang barusan diajukan spontan masuk dan terekam di daftar histori laporan pengguna.
 
 **Hasil :** 
 
 <img src="image/newitem.jpeg" />
 
-Berdasarkan hasil pengujian, item dengan nama Hp berhasil muncul pada daftar item dengan informasi harga Rp 200.000, deskripsi baru, dan jumlah stok 5. Hal ini menunjukkan bahwa data item yang ditambahkan telah berhasil disimpan dan ditampilkan pada sistem.
+Sesaat pasca-pengecekan setelah aduan berhasil di-_submit_, catatan laporan terbaru akan menempati tumpukan urutan paling atas. Hal ini mengeaskan fungsionalitas pengiriman data telah memvalidasi persilangan _record_ yang diatur, sehingga pengguna percaya formulirnya tersimpan sebagai berstatus _"Menunggu"_.
 
 ---
 
-### 5. Memperbarui Data Item
+### 5. Memperbarui Status/Detail Laporan (Verifikasi Admin)
 
-**Tujuan :** Pengujian ini bertujuan untuk memastikan fitur edit item dapat digunakan untuk mengubah data item yang sudah ada pada sistem.
+**Tujuan :** Simulasi fungsi hak pengelolaan terhadap Admin (atau unit terkait) saat ingin meninjau ulang dan memperbarui status atau prioritas laporan di dashboard khusus.
 
 **Hasil :** 
 
 <img src="image/edit.jpeg" />
 
-Berdasarkan hasil pengujian, setelah tombol Edit dipilih, halaman menampilkan form Edit Item yang berisi data item sebelumnya seperti nama Hp Samsung, harga 200000, deskripsi Samsung A30, dan jumlah stok 5. Hal ini menunjukkan bahwa data item berhasil dimuat ke dalam form untuk dilakukan proses pengeditan. Kemudian, dilakukan pengeditan pada harga dan jumlah stok untuk memastikan fitur edit dapat digunakan dengan baik.
+Berbeda dari sisi pengguna reguler, jika mengakses sebagai pengelola Admin, opsi penyuntingan dihidupkan pada halaman spesifik _Detail Laporan_. Di sinilah admin mendelegasikan perubahan teknis dan mampu merubah progress stasus laporan menjadi opsi lanjutan penanganan, sehingga fitur pembaruan UI merespons manipulasi tersebut.
 
 ---
 
-### 6. Memastikan Item Berhasil Diperbarui
+### 6. Memeriksa Pembaruan Sistem Terealisasi 
 
-**Tujuan :** Pengujian ini bertujuan untuk memastikan perubahan data item melalui fitur Edit dapat disimpan dan ditampilkan pada daftar item
+**Tujuan :** Validasi pasca-pembaruan penanganan, yakni menastikan apakah revisi informasi pada tahapan manajemen laporan disetujui server dan tampak meluas oleh user lain.
 
 **Hasil :** 
 
 <img src="image/newupdate.jpeg" />
 
-Berdasarkan hasil pengujian, setelah data item diperbarui melalui form edit, item berhasil ditampilkan kembali pada daftar dengan informasi yang telah diperbarui, yaitu nama Hp Samsung, harga Rp 1.000.000, deskripsi Samsung A30, dan jumlah stok 10. Hal ini menunjukkan bahwa proses pembaruan data item berhasil dilakukan.
+Terlihat bahwa UI mereset _state_ dengan status yang sudah diperbarui pasca interaksi Simpan Perubahan oleh admin. Rona status yang mulanya "Menunggu" bergeser label menjadi "Diproses" atau "Selesai", mensinkronkan pembaruan kepada semua pengguna yang berkepentingan.
 
 ---
 
-### 7. Mencari Data Item
+### 7. Mencari Laporan Melalui Fitur Pencarian
 
-**Tujuan :** Pengujian ini bertujuan untuk memastikan fitur pencarian item dapat digunakan untuk menemukan item berdasarkan nama atau deskripsi.
+**Tujuan :** Menguji utilitas instrumen filter pencarian (_Search Engine_) untuk meminimalisir waktu penelusuran jika database menyimpan antrean puluhan atau ratusan daftar.
 
 **Hasil :** 
 
 <img src="image/search.jpeg" />
 
-Berdasarkan hasil pengujian, ketika kata kunci “Hp” dimasukkan pada kolom pencarian, sistem berhasil menampilkan item yang sesuai yaitu Hp Samsung dengan informasi harga Rp 1.000.000, deskripsi Samsung A30, dan jumlah stok 10. Hal ini menunjukkan bahwa fitur pencarian item pada aplikasi berfungsi dengan baik.
+Begitu suatu _keyword_ khusus diketik pada panel penelusuran, aplikasi dengan gesit mensortir rekaman yang tidak berelasi. Hasil filter mengerucut dan menghidangkan sekelompok kecil sisa tiket pelaporan yang mengandung padanan huruf relevan sesuai kata kunci untuk memantapkan fitur pencarian adaptif.
 
 ---
 
-### 8. Cek Dialog Konfirmasi Penghapusan
+### 8. Membuka Diskusi Komentar / Interaksi Pesan Laporan
 
-**Tujuan :** Pengujian ini bertujuan untuk memastikan sistem menampilkan dialog konfirmasi sebelum item dihapus dari daftar.
+**Tujuan :** Mengontrol fungsionalitas sarana saling membubuhkan komentar konfirmasi komunikasi seputar _update_ progres antara pemangku kepentingan dan individu pelapor.
 
 **Hasil :** 
 
 <img src="image/confirm.jpeg" />
 
-Berdasarkan hasil pengujian, ketika tombol Hapus pada item dipilih, sistem menampilkan dialog konfirmasi dengan pesan “Yakin ingin menghapus 'Hp Samsung'?” serta pilihan OK dan Cancel. Hal ini menunjukkan bahwa fitur konfirmasi penghapusan item berfungsi dengan baik sebelum proses penghapusan dilakukan.
+Sistem mengakomodir area _text box_ dengan tajuk komentar di bawah _interface_ laporan. Kemampuan aplikasi ketika menangkap pengetikan respons dan proses transmisi pesan (klik _Send/Submit_) tidak menuai gangguan bug, memperlihatkan integrasi peredaran teks dua arah yang optimal.
 
 ---
 
-### 9. Item Terhapus dari Daftar
+### 9. Respons Komentar Ditampilkan di Kolom Thread
 
-**Tujuan :** Pengujian ini bertujuan untuk memastikan item yang telah dikonfirmasi untuk dihapus tidak lagi ditampilkan pada daftar item di aplikasi.
+**Tujuan :** Memastikan interaksi tulisan dari form komentar sukses menyala pada rekam jejak linimasa balasan (thread).
 
 **Hasil :** 
 
 <img src="image/delete.jpeg" />
 
-Berdasarkan hasil pengujian, setelah tombol OK pada dialog konfirmasi dipilih, item Hp Samsung tidak lagi muncul pada daftar item. Hal ini menunjukkan bahwa proses penghapusan data berhasil dilakukan dan item telah dihapus dari sistem.
+Uji coba memanifestasikan letak komentar terbaru yang diserahkan akan tampil ke dalam blok kolom obrolan dengan atribusi penulisnya (Admin/User). Kemunculan ini menjadikannya penunjang kepekaan aplikasi dalam me-refresh rekam UI komentar ke dalam daftar interaksi bacaan.
 
 ---
 
-### 10. Menampilkan Tampilan Data Kosong
+### 10. Tampilan Penanda Data Kosong (Empty State)
 
-**Tujuan :** Pengujian ini bertujuan untuk memastikan aplikasi menampilkan tampilan data kosong ketika tidak ada item yang tersimpan di dalam sistem.
+**Tujuan :** Menilai kesiapan elemen estetika dan UX penunjang "Empty State" ketika profil seseorang benar-benar terbebas dari keluhan laporan apa pun.
 
 **Hasil :** 
 
 <img src="image/empty.jpeg" />
 
-Berdasarkan hasil pengujian, setelah seluruh item dihapus dari daftar, halaman aplikasi menampilkan pesan “Belum ada item. Gunakan form di atas untuk menambahkan item pertama.” pada area daftar item. Hal ini menunjukkan bahwa tampilan data kosong muncul dengan baik ketika tidak ada data item yang tersedia.
+Untuk situasi pencarian hampa maupun tabel laporan pada profil baru, aplikasi dengan cermat membentangkan peringatan indikasi kosong (No Reports Found). Langkah ini mencitrakan UI penanganan ketidakadaan data yang lebih manusiawi melalui pedoman layar intuitif yang tak nampak error, namun informatif membimbing _user_.
 
 
 
