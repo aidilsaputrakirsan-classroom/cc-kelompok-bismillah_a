@@ -11,6 +11,8 @@ dist/
 
 # Docker
 *.log
+.env.docker
+
 
 # IDE
 .vscode/
