@@ -14,7 +14,7 @@ switch ($Action) {
           --name laporin `
           --network laporin_net `
           -e POSTGRES_USER=postgres `
-          -e POSTGRES_PASSWORD=password `
+          -e POSTGRES_PASSWORD=aditya221004 `
           -e POSTGRES_DB=laporin_itk `
           -p 5433:5432 `
           -v pgdata:/var/lib/postgresql/data `
@@ -30,7 +30,7 @@ switch ($Action) {
           --network laporin_net `
           --env-file ../backend/.env.docker `
           -p 8000:8000 `
-          laporin_itk-backend:v2
+          laporin_itk-backend:v1
         
         Write-Host "[*] Starting frontend..."
         docker run -d `
