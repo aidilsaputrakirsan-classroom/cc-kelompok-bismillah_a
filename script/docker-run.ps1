@@ -17,7 +17,7 @@ switch ($Action) {
           --name laporin `
           --network laporin_net `
           -e POSTGRES_USER=postgres `
-          -e POSTGRES_PASSWORD=fir111213 `
+          -e POSTGRES_PASSWORD=password `
           -e POSTGRES_DB=laporin_itk `
           -p 5433:5432 `
           -v pgdata:/var/lib/postgresql/data `
