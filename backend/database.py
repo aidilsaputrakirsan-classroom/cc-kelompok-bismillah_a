@@ -4,14 +4,15 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-# Load environment variables dari .env
-load_dotenv()
+# Load .env file hanya sebagai fallback — tidak override env vars dari Docker/OS
+# Saat di Docker, --env-file sudah inject DATABASE_URL ke environment container
+load_dotenv(override=False)
 
 # Ambil DATABASE_URL dari environment
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
-    raise ValueError("DATABASE_URL tidak ditemukan di .env!")
+    raise ValueError("DATABASE_URL tidak ditemukan! Pastikan file .env atau --env-file sudah dikonfigurasi.")
 
 # Buat engine (koneksi ke database)
 engine = create_engine(DATABASE_URL)
