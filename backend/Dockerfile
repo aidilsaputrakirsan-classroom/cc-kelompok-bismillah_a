@@ -1,42 +1,60 @@
 # ============================================================
-# LaporIn ITK — Dockerfile (Backend)
+# LaporIn ITK — Dockerfile (Backend) - MULTI-STAGE BUILD
 # Lead DevOps: Muhammad Novri Aziztra
-# Modul 5: Docker Fundamentals
+# Modul 6: Optimasi Image & Dokumentasi Docker
+# Target: image size < 150 MB
 # ============================================================
 
-# 1. Base image — Python 3.12 slim (debian minimal, ~50MB)
-FROM python:3.12-slim
+# ────────────────────────────────────────────────
+# STAGE 1: builder — install semua dependencies
+# ────────────────────────────────────────────────
+FROM python:3.12-slim AS builder
 
-# 2. Set working directory di dalam container
 WORKDIR /app
 
-# 3. Copy HANYA requirements.txt dulu (cache optimization)
-#    Layer ini hanya rebuild jika requirements.txt berubah
+# Buat virtual environment (venv)
+# venv memisahkan dependencies agar mudah di-copy ke stage berikutnya
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copy HANYA requirements.txt dulu → cache optimization
+# Layer ini hanya rebuild jika requirements.txt berubah
 COPY requirements.txt .
 
-# 4. Install Python dependencies
-#    --no-cache-dir: jangan simpan pip cache (hemat space)
-RUN pip install --no-cache-dir -r requirements.txt
+# Install seluruh dependencies ke dalam venv
+# --no-cache-dir: tidak simpan cache pip (hemat space di builder)
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
-# 5. Copy seluruh kode aplikasi
-#    Layer ini rebuild setiap kali kode berubah
+# ────────────────────────────────────────────────
+# STAGE 2: runtime — image final (ringan)
+# Hanya berisi: Python runtime + venv + kode aplikasi
+# TIDAK ada: pip, setuptools, build tools, cache pip
+# ────────────────────────────────────────────────
+FROM python:3.12-slim AS runtime
+
+# Import virtual environment dari stage builder
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+WORKDIR /app
+
+# Copy seluruh kode aplikasi
 COPY . .
 
-# 6. Pastikan startup script bisa dieksekusi
+# Pastikan startup script bisa dieksekusi
 RUN chmod +x scripts/wait-for-db.sh
 
-# 7. Buat non-root user untuk keamanan (Best Practice Modul 5)
+# Buat non-root user untuk keamanan (Best Practice)
 RUN useradd -m -r appuser && chown -R appuser:appuser /app
 USER appuser
 
-# 8. Dokumentasikan port yang digunakan
+# Dokumentasikan port yang digunakan
 EXPOSE 8000
 
-# 9. Health check — cek apakah API berjalan setiap 30 detik
-#    Gunakan Python sebagai alternatif healthcheck (curl tidak ada di slim)
+# Health check — cek apakah API berjalan setiap 30 detik
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
-# 10. Gunakan wait-for-db.sh sebagai startup script
-#     Script akan ping PostgreSQL terlebih dahulu sebelum jalankan uvicorn
+# Gunakan wait-for-db.sh — ping PostgreSQL sebelum start uvicorn
 CMD ["sh", "scripts/wait-for-db.sh"]
