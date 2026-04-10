@@ -33,7 +33,11 @@ async function request(method, path, body = null, requireAuth = true) {
 
   if (requireAuth) {
     const token = getToken();
-    if (!token) throw new Error("UNAUTHORIZED");
+    if (!token) {
+      clearToken();
+      window.location.href = "/login";
+      throw new Error("Sesi tidak ditemukan. Silakan login kembali.");
+    }
     headers["Authorization"] = `Bearer ${token}`;
   }
 
@@ -42,7 +46,16 @@ async function request(method, path, body = null, requireAuth = true) {
 
   const res = await fetch(`${BASE_URL}${path}`, options);
 
-  if (res.status === 401) throw new Error("UNAUTHORIZED");
+  if (res.status === 401) {
+    if (path !== "/auth/login") {
+      clearToken();
+      window.location.href = "/login";
+      throw new Error("Sesi Anda telah berakhir, silakan login kembali.");
+    } else {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Email atau password salah");
+    }
+  }
   if (res.status === 403) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || "Akses ditolak");
