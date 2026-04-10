@@ -4,6 +4,9 @@ if (-not $Action) { $Action = 'start' }
 
 switch ($Action) {
     'start' {
+        Write-Host "[-] Cleaning up existing containers..."
+        docker rm -f laporin backend frontend 2>$null
+
         Write-Host "[*] Starting all containers..."
         
         # Inisiasi network, output error diarahkan ke $null (ekuivalen 2>/dev/null)
