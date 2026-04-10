@@ -22,19 +22,21 @@ RUN pip install --no-cache-dir -r requirements.txt
 #    Layer ini rebuild setiap kali kode berubah
 COPY . .
 
-# 6. Buat non-root user untuk keamanan (Best Practice Modul 5)
+# 6. Pastikan startup script bisa dieksekusi
+RUN chmod +x scripts/wait-for-db.sh
+
+# 7. Buat non-root user untuk keamanan (Best Practice Modul 5)
 RUN useradd -m -r appuser && chown -R appuser:appuser /app
 USER appuser
 
-# 7. Dokumentasikan port yang digunakan
+# 8. Dokumentasikan port yang digunakan
 EXPOSE 8000
 
-# 8. Health check — cek apakah API berjalan setiap 30 detik
-#    curl wajib tersedia di image slim (tidak tersedia by default)
-#    Gunakan Python sebagai alternatif healthcheck
+# 9. Health check — cek apakah API berjalan setiap 30 detik
+#    Gunakan Python sebagai alternatif healthcheck (curl tidak ada di slim)
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
-# 9. Command untuk menjalankan aplikasi
-#    --host 0.0.0.0: agar bisa diakses dari luar container
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# 10. Gunakan wait-for-db.sh sebagai startup script
+#     Script akan ping PostgreSQL terlebih dahulu sebelum jalankan uvicorn
+CMD ["sh", "scripts/wait-for-db.sh"]
