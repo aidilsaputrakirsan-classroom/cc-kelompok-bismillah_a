@@ -1,158 +1,490 @@
-# User Interface Testing Results
+# Laporan Testing UI - LaporIn ITK  
 
-Kegiatan ini bertujuan untuk melakukan pengujian terhadap antarmuka pengguna (UI) LaporIn ITK dengan menjalankan seluruh alur fitur pada aplikasi guna memastikan setiap fungsi dapat berjalan dengan baik. Pengujian ini difokuskan untuk menilai efektivitas integrasi antara frontend dan API backend FastAPI serta memvalidasi keandalan sistem dalam proses autentikasi (login/register) serta siklus manajemen pelaporan (mulai saat pengguna mengajukan laporan, hingga diproses oleh admin, dan dimutakhirkan rincian datanya). 
+**Lead QA:** Salsabila Putri Zahrani | **Tim:** Bismillah_A  
 
----
 
-## Ringkasan Hasil Pengujian
-
-Jumlah skenario pengujian : 10
-
-| Berhasil | Gagal | 
-|------|------|
-| 10   | 0    | 
-
-Berdasarkan hasil pengujian yang dilakukan, seluruh fitur aplikasi LaporIn ITK dapat termuat dengan benar dan berjalan dengan baik sesuai dengan kebutuhan fungsionalitas sistem pelaporan.
+Dokumen ini berisi hasil pengujian antarmuka pengguna (UI) pada aplikasi **LaporIn ITK**, baik untuk sisi pengguna maupun admin. Pengujian dilakukan untuk memastikan seluruh fitur berjalan sesuai dengan yang diharapkan, termasuk validasi form, navigasi, serta interaksi antar elemen pada sistem.  
 
 ---
 
-## Daftar Skenario Pengujian
+## Ringkasan Testing  
 
-### 1. Cek Koneksi Sistem LaporIn (Status Layanan)
-
-**Tujuan :** Pengujian ini bertujuan untuk memastikan aplikasi frontend dapat dijalankan secara fungsional melalui browser dan berhasil terhubung secara sinkron dengan backend API.
-
-**Hasil :** 
-
-<img src="image/apiconnect.jpeg" />
-
-Berdasarkan hasil pengujian, aplikasi berhasil diakses tanpa isu _Network Error_. Hal ini menunjukkan bahwa koneksi jaringan antara komponen frontend dan server backend FastAPI telah tersambung sepenuhnya dan siap melayani pertukaran data login maupun pengiriman laporan.
+| Kategori | Total Test Case | Pass | Fail | Pass Rate |
+|----------|-----------------|------|------|-----------|
+| UI Pengguna | 44 | 44 | 0 | 100% |
+| UI Admin | 13 | 13 | 0 | 100% |
+| **TOTAL** | **57** | **57** | **0** | **100%** |
 
 ---
 
-### 2. Menampilkan Daftar Laporan (Dashboard)
+## 1. Testing UI Pengguna  
 
-**Tujuan :** Pengujian ini bertujuan untuk membuktikan bahwa data laporan yang sebelumya disubmit di database dapat ditarik (fetch) dan divisualisasikan dengan tepat pada halaman _dashboard_ aplikasi.
+### 1.1 Landing Page  
 
-**Hasil :** 
-
-<img src="image/items.jpeg" />
-
-Sesuai hasil observasi pengujian, riwayat pelaporan historis (seperti Laporan Kerusakan Infrastruktur atau Laporan Kehilangan) berhasil muncul dan dirinci dengan kartu antarmuka (_view card_). Elemen responsif berupa judul laporan, deskripsi singkat, kategori, status berjalan (misal: "Menunggu" atau "Diproses"), dan keterangan lokasi ditampilkan dengan presisi untuk menyajikan laporan secara sistematis.
-
----
-
-### 3. Pembuatan Laporan Aduan Baru
-
-**Tujuan :** Pengujian ini mengevaluasi kelancaran pengguna baru yang ingin mengajukan aduan pelaporan sistem secara langsung lewat _form_ pengisian yang dirancang.
-
-**Hasil :** 
-
-<img src="image/tambah.jpeg" />
-
-Formulir buat laporan sanggup diisi dengan mulus. Pengguna dapat memilih tipe kategori (Fasilitas, Kehilangan, dsb.), mencatat detail kejadian pada input kotak rincian deskripsi, hingga mendefinisikan letak ruangannya. Alur submit dipicu melalui komponen tombol Buat Laporan untuk menjamin pelapor tak mengalami distorsi sistem rror.
+**TC #1 - Button Register**  
+Skenario: Klik tombol Register  
+Expected: Berpindah ke halaman register  
+Status: ✅ PASS  
+![ui1](image/ui1.png)
 
 ---
 
-### 4. Memastikan Laporan Terarsip Ke Daftar
-
-**Tujuan :** Memverifikasi apakah laporan yang barusan diajukan spontan masuk dan terekam di daftar histori laporan pengguna.
-
-**Hasil :** 
-
-<img src="image/newitem.jpeg" />
-
-Sesaat pasca-pengecekan setelah aduan berhasil di-_submit_, catatan laporan terbaru akan menempati tumpukan urutan paling atas. Hal ini mengeaskan fungsionalitas pengiriman data telah memvalidasi persilangan _record_ yang diatur, sehingga pengguna percaya formulirnya tersimpan sebagai berstatus _"Menunggu"_.
+**TC #2 - Button Login**  
+Skenario: Klik tombol Login  
+Expected: Berpindah ke halaman login  
+Status: ✅ PASS  
+![ui2](image/ui2.png)
 
 ---
 
-### 5. Memperbarui Status/Detail Laporan (Verifikasi Admin)
+### 1.2 Register  
 
-**Tujuan :** Simulasi fungsi hak pengelolaan terhadap Admin (atau unit terkait) saat ingin meninjau ulang dan memperbarui status atau prioritas laporan di dashboard khusus.
-
-**Hasil :** 
-
-<img src="image/edit.jpeg" />
-
-Berbeda dari sisi pengguna reguler, jika mengakses sebagai pengelola Admin, opsi penyuntingan dihidupkan pada halaman spesifik _Detail Laporan_. Di sinilah admin mendelegasikan perubahan teknis dan mampu merubah progress stasus laporan menjadi opsi lanjutan penanganan, sehingga fitur pembaruan UI merespons manipulasi tersebut.
+**TC #3 - Nama Kosong**  
+Skenario: Submit tanpa nama  
+Expected: Muncul error  
+Status: ✅ PASS  
+![ui3](image/ui3.png)
 
 ---
 
-### 6. Memeriksa Pembaruan Sistem Terealisasi 
-
-**Tujuan :** Validasi pasca-pembaruan penanganan, yakni menastikan apakah revisi informasi pada tahapan manajemen laporan disetujui server dan tampak meluas oleh user lain.
-
-**Hasil :** 
-
-<img src="image/newupdate.jpeg" />
-
-Terlihat bahwa UI mereset _state_ dengan status yang sudah diperbarui pasca interaksi Simpan Perubahan oleh admin. Rona status yang mulanya "Menunggu" bergeser label menjadi "Diproses" atau "Selesai", mensinkronkan pembaruan kepada semua pengguna yang berkepentingan.
+**TC #4 - Email Tidak Valid**  
+Skenario: Input email salah format  
+Expected: Muncul error  
+Status: ✅ PASS  
+![ui4](image/ui4.png)
 
 ---
 
-### 7. Mencari Laporan Melalui Fitur Pencarian
-
-**Tujuan :** Menguji utilitas instrumen filter pencarian (_Search Engine_) untuk meminimalisir waktu penelusuran jika database menyimpan antrean puluhan atau ratusan daftar.
-
-**Hasil :** 
-
-<img src="image/search.jpeg" />
-
-Begitu suatu _keyword_ khusus diketik pada panel penelusuran, aplikasi dengan gesit mensortir rekaman yang tidak berelasi. Hasil filter mengerucut dan menghidangkan sekelompok kecil sisa tiket pelaporan yang mengandung padanan huruf relevan sesuai kata kunci untuk memantapkan fitur pencarian adaptif.
+**TC #5 - Password Pendek**  
+Skenario: Password < 8 karakter  
+Expected: Muncul error  
+Status: ✅ PASS  
+![ui5](image/ui5.png)
 
 ---
 
-### 8. Membuka Diskusi Komentar / Interaksi Pesan Laporan
-
-**Tujuan :** Mengontrol fungsionalitas sarana saling membubuhkan komentar konfirmasi komunikasi seputar _update_ progres antara pemangku kepentingan dan individu pelapor.
-
-**Hasil :** 
-
-<img src="image/confirm.jpeg" />
-
-Sistem mengakomodir area _text box_ dengan tajuk komentar di bawah _interface_ laporan. Kemampuan aplikasi ketika menangkap pengetikan respons dan proses transmisi pesan (klik _Send/Submit_) tidak menuai gangguan bug, memperlihatkan integrasi peredaran teks dua arah yang optimal.
+**TC #6 - Password Tanpa Angka/Symbol**  
+Skenario: Password tidak memenuhi aturan  
+Expected: Muncul error  
+Status: ✅ PASS  
+![ui6](image/ui6.png)
 
 ---
 
-### 9. Respons Komentar Ditampilkan di Kolom Thread
-
-**Tujuan :** Memastikan interaksi tulisan dari form komentar sukses menyala pada rekam jejak linimasa balasan (thread).
-
-**Hasil :** 
-
-<img src="image/delete.jpeg" />
-
-Uji coba memanifestasikan letak komentar terbaru yang diserahkan akan tampil ke dalam blok kolom obrolan dengan atribusi penulisnya (Admin/User). Kemunculan ini menjadikannya penunjang kepekaan aplikasi dalam me-refresh rekam UI komentar ke dalam daftar interaksi bacaan.
+**TC #7 - Nomor HP Tidak Valid**  
+Skenario: Format nomor salah  
+Expected: Muncul error  
+Status: ✅ PASS  
+![ui7](image/ui7.png)
 
 ---
 
-### 10. Tampilan Penanda Data Kosong (Empty State)
+**TC #8 - Nomor HP Kosong**  
+Skenario: Tidak isi nomor HP  
+Expected: Tetap bisa daftar  
+Status: ✅ PASS  
+![ui8](image/ui8.png)
 
-**Tujuan :** Menilai kesiapan elemen estetika dan UX penunjang "Empty State" ketika profil seseorang benar-benar terbebas dari keluhan laporan apa pun.
+---
 
-**Hasil :** 
+**TC #9 - Submit Kosong**  
+Skenario: Klik daftar tanpa isi  
+Expected: Muncul error  
+Status: ✅ PASS  
+![ui9](image/ui9.png)
 
-<img src="image/empty.jpeg" />
+---
 
-Untuk situasi pencarian hampa maupun tabel laporan pada profil baru, aplikasi dengan cermat membentangkan peringatan indikasi kosong (No Reports Found). Langkah ini mencitrakan UI penanganan ketidakadaan data yang lebih manusiawi melalui pedoman layar intuitif yang tak nampak error, namun informatif membimbing _user_.
+**TC #10 - Registrasi Berhasil**  
+Skenario: Input valid  
+Expected: Berhasil daftar  
+Status: ✅ PASS  
+![ui10](image/ui10.png)
 
+---
 
+**TC #11 - Link Login**  
+Skenario: Klik link login  
+Expected: Pindah ke login  
+Status: ✅ PASS  
+![ui11](image/ui11.png)
 
+---
 
+### 1.3 Login  
 
+**TC #12 - Email Invalid**  
+Skenario: Email salah format  
+Expected: Error  
+Status: ✅ PASS  
+![ui12](image/ui12.png)
 
+---
 
+**TC #13 - Email Tidak Terdaftar**  
+Skenario: Email tidak ada  
+Expected: Error  
+Status: ✅ PASS  
+![ui13](image/ui13.png)
 
+---
 
+**TC #14 - Password Invalid**  
+Skenario: Password tidak valid  
+Expected: Error  
+Status: ✅ PASS  
+![ui14](image/ui14.png)
 
+---
 
+**TC #15 - Password Salah**  
+Skenario: Password salah  
+Expected: Error  
+Status: ✅ PASS  
+![ui15](image/ui15.png)
 
+---
 
+**TC #16 - Login Kosong**  
+Skenario: Submit tanpa isi  
+Expected: Error  
+Status: ✅ PASS  
+![ui16](image/ui16.png)
 
+---
 
+**TC #17 - Login Berhasil**  
+Skenario: Data benar  
+Expected: Masuk sistem  
+Status: ✅ PASS  
+![ui17](image/ui17.png)
 
+---
 
+**TC #18 - Link Register**  
+Skenario: Klik daftar  
+Expected: Ke register  
+Status: ✅ PASS  
+![ui18](image/ui18.png)
 
+---
 
+### 1.4 Buat Laporan Baru  
 
+**TC #19 - Pilih Kategori**  
+Skenario: Klik kategori  
+Expected: Kategori aktif  
+Status: ✅ PASS  
+![ui19](image/ui19.png)
 
+---
+
+**TC #20 - Kategori Kosong**  
+Skenario: Tidak pilih kategori  
+Expected: Error  
+Status: ✅ PASS  
+![ui20](image/ui20.png)
+
+---
+
+**TC #21 - Judul Kosong**  
+Skenario: Judul kosong  
+Expected: Error  
+Status: ✅ PASS  
+![ui21](image/ui21.png)
+
+---
+
+**TC #22 - Judul Pendek**  
+Skenario: Judul terlalu singkat  
+Expected: Error  
+Status: ✅ PASS  
+![ui22](image/ui22.png)
+
+---
+
+**TC #23 - Deskripsi Kosong**  
+Skenario: Tidak isi deskripsi  
+Expected: Error  
+Status: ✅ PASS  
+![ui23](image/ui23.png)
+
+---
+
+**TC #24 - Deskripsi Pendek**  
+Skenario: Deskripsi terlalu singkat  
+Expected: Error  
+Status: ✅ PASS  
+![ui24](image/ui24.png)
+
+---
+
+**TC #25 - Lokasi Opsional**  
+Skenario: Lokasi kosong  
+Expected: Tetap bisa kirim  
+Status: ✅ PASS  
+![ui25](image/ui25.png)
+
+---
+
+**TC #26 - Tanggal Kosong**  
+Skenario: Tidak isi tanggal  
+Expected: Error  
+Status: ✅ PASS  
+![ui26](image/ui26.png)
+
+---
+
+**TC #27 - Klik Peta**  
+Skenario: Klik peta  
+Expected: Marker muncul  
+Status: ✅ PASS  
+![ui27](image/ui27.png)
+
+---
+
+**TC #28 - Hapus Marker**  
+Skenario: Hapus titik  
+Expected: Marker hilang  
+Status: ✅ PASS  
+![ui28](image/ui28.png)
+
+---
+
+**TC #29 - Zoom Peta**  
+Skenario: Zoom  
+Expected: Peta berubah  
+Status: ✅ PASS  
+![ui29](image/ui29.png)
+
+---
+
+**TC #30 - Anonim Aktif**  
+Skenario: Centang anonim  
+Expected: Identitas disembunyikan  
+Status: ✅ PASS  
+![ui30](image/ui30.png)
+
+---
+
+**TC #31 - Anonim Nonaktif**  
+Skenario: Tidak centang  
+Expected: Identitas tampil  
+Status: ✅ PASS  
+![ui31](image/ui31.png)
+
+---
+
+**TC #32 - Tombol Batal**  
+Skenario: Klik batal  
+Expected: Kembali  
+Status: ✅ PASS  
+![ui32](image/ui32.png)
+
+---
+
+**TC #33 - Tombol Kembali**  
+Skenario: Klik kembali  
+Expected: Kembali  
+Status: ✅ PASS  
+![ui33](image/ui33.png)
+
+---
+
+**TC #34 - Kirim Kosong**  
+Skenario: Submit tanpa isi  
+Expected: Error  
+Status: ✅ PASS  
+![ui34](image/ui34.png)
+
+---
+
+**TC #35 - Kirim Berhasil**  
+Skenario: Data lengkap  
+Expected: Laporan terkirim  
+Status: ✅ PASS  
+![ui35](image/ui35.png)
+
+---
+
+**TC #36 - Laporan Saya**  
+Skenario: Klik menu  
+Expected: Ke halaman laporan  
+Status: ✅ PASS  
+![ui36](image/ui36.png)
+
+---
+
+### 1.5 Laporan Saya  
+
+**TC #37 - Empty State**  
+Skenario: Tidak ada data  
+Expected: Tampil kosong  
+Status: ✅ PASS  
+![ui37](image/ui37.png)
+
+---
+
+**TC #38 - Buat Laporan Baru**  
+Skenario: Klik tombol  
+Expected: Ke form  
+Status: ✅ PASS  
+![ui38](image/ui38.png)
+
+---
+
+**TC #39 - Laporan Pertama**  
+Skenario: Klik tombol  
+Expected: Ke form  
+Status: ✅ PASS  
+![ui39](image/ui39.png)
+
+---
+
+**TC #40 - Filter Status**  
+Skenario: Pilih status  
+Expected: Data terfilter  
+Status: ✅ PASS  
+![ui40](image/ui40.png)
+
+---
+
+**TC #41 - Filter Kategori**  
+Skenario: Pilih kategori  
+Expected: Data terfilter  
+Status: ✅ PASS  
+![ui41](image/ui41.png)
+
+---
+
+**TC #42 - Filter Kombinasi**  
+Skenario: Kombinasi filter  
+Expected: Data sesuai  
+Status: ✅ PASS  
+![ui42](image/ui42.png)
+
+---
+
+**TC #43 - Navbar Buat Laporan**  
+Skenario: Klik menu  
+Expected: Ke form  
+Status: ✅ PASS  
+![ui43](image/ui43.png)
+
+---
+
+**TC #44 - Logout**  
+Skenario: Klik keluar  
+Expected: Ke login  
+Status: ✅ PASS  
+![ui44](image/ui44.png)
+
+---
+
+## 2. Testing UI Admin  
+
+### 2.1 Dashboard Laporan  
+
+**TC #45 - Load Data**  
+Skenario: Buka halaman  
+Expected: Data tampil  
+Status: ✅ PASS  
+![ui-adm1](image/ui-adm1.png)
+
+---
+
+**TC #46 - Filter Status**  
+Skenario: Pilih status  
+Expected: Terfilter  
+Status: ✅ PASS  
+![ui-adm2](image/ui-adm2.png)
+
+---
+
+**TC #47 - Filter Kategori**  
+Skenario: Pilih kategori  
+Expected: Terfilter  
+Status: ✅ PASS  
+![ui-adm3](image/ui-adm3.png)
+
+---
+
+**TC #48 - Filter Kombinasi**  
+Skenario: Gabungan filter  
+Expected: Sesuai  
+Status: ✅ PASS  
+![ui-adm4](image/ui-adm4.png)
+
+---
+
+**TC #49 - Ubah Status**  
+Skenario: Ubah dropdown  
+Expected: Tersimpan  
+Status: ✅ PASS  
+![ui-adm5](image/ui-adm5.png)
+
+---
+
+**TC #50 - Detail Laporan**  
+Skenario: Klik detail  
+Expected: Modal muncul  
+Status: ✅ PASS  
+![ui-adm6](image/ui-adm6.png)
+
+---
+
+**TC #51 - Tombol Pin**  
+Skenario: Klik pin  
+Expected: Modal tampil  
+Status: ✅ PASS  
+![ui-adm7](image/ui-adm7.png)
+
+---
+
+**TC #52 - Assign Unit**  
+Skenario: Pilih unit  
+Expected: Berhasil  
+Status: ✅ PASS  
+![ui-adm8](image/ui-adm8.png)
+
+---
+
+**TC #53 - Ke Statistik**  
+Skenario: Klik statistik  
+Expected: Pindah halaman  
+Status: ✅ PASS  
+![ui-adm9](image/ui-adm9.png)
+
+---
+
+### 2.2 Dashboard Statistik  
+
+**TC #54 - Donut Chart**  
+Skenario: Hover chart  
+Expected: Tooltip muncul  
+Status: ✅ PASS  
+![ui-adm10](image/ui-adm10.png)
+
+---
+
+**TC #55 - Bar Chart**  
+Skenario: Hover chart  
+Expected: Tooltip muncul  
+Status: ✅ PASS  
+![ui-adm11](image/ui-adm11.png)
+
+---
+
+**TC #56 - Button Laporan**  
+Skenario: Klik tombol  
+Expected: Kembali ke laporan  
+Status: ✅ PASS  
+![ui-adm12](image/ui-adm12.png)
+
+---
+
+**TC #57 - Logout Admin**  
+Skenario: Klik keluar  
+Expected: Ke login  
+Status: ✅ PASS  
+![ui-adm13](image/ui-adm13.png)
