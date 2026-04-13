@@ -1,60 +1,46 @@
 # ============================================================
-# LaporIn ITK — Dockerfile (Backend) - MULTI-STAGE BUILD
-# Lead DevOps: Muhammad Novri Aziztra
-# Modul 6: Optimasi Image & Dokumentasi Docker
-# Target: image size < 150 MB
+# LaporIn ITK — Dockerfile (Frontend) - MULTI-STAGE BUILD
+# Lead Frontend: Firni Fauziah Ramadhini
+# Modul 6: Optimasi & Dokumentasi Multi-Container
+# Target: image < 50 MB
 # ============================================================
 
 # ────────────────────────────────────────────────
-# STAGE 1: builder — install semua dependencies
+# STAGE 1: builder — install deps & build React
 # ────────────────────────────────────────────────
-FROM python:3.12-slim AS builder
+FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Buat virtual environment (venv)
-# venv memisahkan dependencies agar mudah di-copy ke stage berikutnya
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+# Copy package files dulu (cache optimization)
+COPY package.json package-lock.json* ./
 
-# Copy HANYA requirements.txt dulu → cache optimization
-# Layer ini hanya rebuild jika requirements.txt berubah
-COPY requirements.txt .
+# npm ci = clean install dari lock file (lebih cepat & reproducible)
+RUN npm ci
 
-# Install seluruh dependencies ke dalam venv
-# --no-cache-dir: tidak simpan cache pip (hemat space di builder)
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
-
-# ────────────────────────────────────────────────
-# STAGE 2: runtime — image final (ringan)
-# Hanya berisi: Python runtime + venv + kode aplikasi
-# TIDAK ada: pip, setuptools, build tools, cache pip
-# ────────────────────────────────────────────────
-FROM python:3.12-slim AS runtime
-
-# Import virtual environment dari stage builder
-COPY --from=builder /opt/venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-
-WORKDIR /app
-
-# Copy seluruh kode aplikasi
+# Copy seluruh source code
 COPY . .
 
-# Pastikan startup script bisa dieksekusi
-RUN chmod +x scripts/wait-for-db.sh
+# Set API URL untuk production build
+ARG VITE_API_URL=http://localhost:8000
+ENV VITE_API_URL=$VITE_API_URL
 
-# Buat non-root user untuk keamanan (Best Practice)
-RUN useradd -m -r appuser && chown -R appuser:appuser /app
-USER appuser
+# Build React → output di /app/dist/
+RUN npm run build
 
-# Dokumentasikan port yang digunakan
-EXPOSE 8000
+# ────────────────────────────────────────────────
+# STAGE 2: production — serve pakai Nginx
+# Hanya berisi: nginx + file dist/ hasil build
+# TIDAK ada: node_modules (300MB+), source code
+# ────────────────────────────────────────────────
+FROM nginx:alpine
 
-# Health check — cek apakah API berjalan setiap 30 detik
-HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+# Copy hasil build dari stage 1
+COPY --from=builder /app/dist/ /usr/share/nginx/html/
 
-# Gunakan wait-for-db.sh — ping PostgreSQL sebelum start uvicorn
-CMD ["sh", "scripts/wait-for-db.sh"]
+# Copy nginx config yang sudah production-ready
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

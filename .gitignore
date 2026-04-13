@@ -12,7 +12,7 @@ dist/
 # Docker
 *.log
 .env.docker
-
+docker-run.ps1
 
 # IDE
 .vscode/
