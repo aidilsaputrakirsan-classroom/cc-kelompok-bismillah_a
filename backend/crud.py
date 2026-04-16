@@ -465,3 +465,63 @@ def get_dashboard_stats(db: Session) -> dict:
         "kategori_stats": kategori_stats,
         "prioritas_stats": prioritas_stats,
     }
+
+
+# ============================================================
+# USER REPORT EDIT & DELETE
+# ============================================================
+
+def update_report_by_user(
+    db: Session,
+    report_id: int,
+    user_id: int,
+    report_data,
+) -> tuple:
+    """
+    User dapat edit laporan miliknya sendiri.
+    Hanya diizinkan jika status laporan masih 'menunggu'.
+    Returns: (report, None) on success, or (None, error_code) on failure.
+    """
+    report = db.query(Report).filter(
+        Report.id == report_id,
+        Report.user_id == user_id,
+    ).first()
+
+    if not report:
+        return None, "not_found"
+    if report.status != "menunggu":
+        return None, "not_allowed"
+
+    update_data = report_data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(report, field, value)
+
+    db.commit()
+    db.refresh(report)
+
+    return db.query(Report).options(
+        joinedload(Report.category),
+        joinedload(Report.locations),
+        joinedload(Report.attachments),
+    ).filter(Report.id == report_id).first(), None
+
+
+def delete_report(db: Session, report_id: int, user_id: int) -> tuple:
+    """
+    User dapat hapus laporan miliknya sendiri.
+    Hanya diizinkan jika status laporan masih 'menunggu'.
+    Returns: (True, None) on success, or (False, error_code) on failure.
+    """
+    report = db.query(Report).filter(
+        Report.id == report_id,
+        Report.user_id == user_id,
+    ).first()
+
+    if not report:
+        return False, "not_found"
+    if report.status != "menunggu":
+        return False, "not_allowed"
+
+    db.delete(report)
+    db.commit()
+    return True, None

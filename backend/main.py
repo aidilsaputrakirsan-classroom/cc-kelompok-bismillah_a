@@ -16,7 +16,7 @@ from schemas import (
     # Auth
     UserCreate, UserResponse, LoginRequest, TokenResponse, normalize_and_validate_email,
     # Reports
-    ReportCreate, ReportUpdate, ReportResponse, ReportListResponse,
+    ReportCreate, ReportUpdate, ReportUserUpdate, ReportResponse, ReportListResponse,
     ReportLocationCreate, ReportLocationResponse,
     # Categories & Units
     CategoryResponse, UnitResponse,
@@ -255,6 +255,54 @@ def detail_laporan(
         raise HTTPException(status_code=403, detail="Tidak memiliki akses ke laporan ini")
 
     return report
+
+
+@app.put("/reports/{report_id}", response_model=ReportResponse, tags=["Laporan"])
+def edit_laporan(
+    report_id: int,
+    report_data: ReportUserUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Edit laporan milik sendiri. **Hanya bisa jika status masih 'menunggu'.**
+
+    - User hanya bisa edit laporan sendiri
+    - Laporan yang sudah diproses atau selesai tidak bisa diedit
+    """
+    report, error = crud.update_report_by_user(
+        db=db, report_id=report_id, user_id=current_user.id, report_data=report_data
+    )
+    if error == "not_found":
+        raise HTTPException(status_code=404, detail="Laporan tidak ditemukan")
+    if error == "not_allowed":
+        raise HTTPException(
+            status_code=403,
+            detail="Laporan hanya bisa diedit jika statusnya masih 'menunggu'",
+        )
+    return report
+
+
+@app.delete("/reports/{report_id}", status_code=204, tags=["Laporan"])
+def hapus_laporan(
+    report_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Hapus laporan milik sendiri. **Hanya bisa jika status masih 'menunggu'.**
+
+    - User hanya bisa hapus laporan sendiri
+    - Laporan yang sudah diproses atau selesai tidak bisa dihapus
+    """
+    success, error = crud.delete_report(db=db, report_id=report_id, user_id=current_user.id)
+    if error == "not_found":
+        raise HTTPException(status_code=404, detail="Laporan tidak ditemukan")
+    if error == "not_allowed":
+        raise HTTPException(
+            status_code=403,
+            detail="Laporan hanya bisa dihapus jika statusnya masih 'menunggu'",
+        )
 
 
 # ==================== REPORT TRACKING (LOKASI) ====================

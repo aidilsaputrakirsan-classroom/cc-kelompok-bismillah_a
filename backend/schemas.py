@@ -144,6 +144,16 @@ class ReportUpdate(BaseModel):
     longitude: Optional[float] = None
 
 
+class ReportUserUpdate(BaseModel):
+    """Schema untuk user mengedit laporan sendiri (hanya jika status 'menunggu')."""
+    judul: Optional[str] = Field(None, min_length=5, max_length=255)
+    deskripsi: Optional[str] = Field(None, min_length=10)
+    lokasi: Optional[str] = None
+    kategori_id: Optional[int] = None
+    tanggal_kejadian: Optional[date] = None
+    anonim: Optional[bool] = None
+
+
 class ReportLocationResponse(BaseModel):
     """Schema untuk titik tracking lokasi."""
     id: int
