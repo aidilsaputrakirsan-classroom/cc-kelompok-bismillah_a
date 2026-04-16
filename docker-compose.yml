@@ -1,0 +1,83 @@
+# ============================================================
+# Docker Compose — Cloud App
+# Komputasi Awan — SI ITK
+# ============================================================
+# Usage:
+#   docker compose up -d          # Start semua services
+#   docker compose down            # Stop & remove
+#   docker compose logs -f         # Lihat logs
+#   docker compose ps              # Status services
+# ============================================================
+
+services:
+  # ==================== DATABASE ====================
+  db:
+    image: postgres:16-alpine
+    container_name: laporin-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: laporin_itk
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - laporin_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d laporin_itk"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ==================== BACKEND ====================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: laporin_itk-backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env.docker
+    ports:
+      - "8000:8000"
+    networks:
+      - laporin_net
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # ==================== FRONTEND ====================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost:8000
+    container_name: laporin_itk-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    networks:
+      - laporin_net
+    depends_on:
+      - backend
+
+# ==================== VOLUMES ====================
+volumes:
+  pgdata:
+    name: laporin_itk-pgdata
+
+# ==================== NETWORKS ====================
+networks:
+  laporin_net:
+    name: laporin_itk-network
+    driver: bridge
