@@ -198,3 +198,15 @@ export const updateReport = async (id, data) => {
 export const assignReport = async (reportId, unitId) => {
   return request("POST", `/admin/reports/${reportId}/assign`, { unit_id: unitId });
 };
+
+// ============================================================
+// REPORTS (USER CRUD — Edit & Delete)
+// ============================================================
+
+export const updateReportByUser = async (id, data) => {
+  return request("PUT", `/reports/${id}`, data);
+};
+
+export const deleteReport = async (id) => {
+  return request("DELETE", `/reports/${id}`);
+};

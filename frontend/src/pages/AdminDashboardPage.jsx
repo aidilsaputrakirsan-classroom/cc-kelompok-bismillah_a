@@ -59,15 +59,32 @@ export default function AdminDashboardPage() {
   useEffect(() => { load(); }, []);
 
   const handleStatusChange = async (reportId, newStatus) => {
+    // Optimistic update: langsung update UI tanpa tunggu API
+    setReports((prev) =>
+      prev.map((r) => (r.id === reportId ? { ...r, status: newStatus } : r))
+    );
     try {
       await updateReport(reportId, { status: newStatus });
-      await loadReports();
-      if (stats) {
-        const s = await fetchDashboardStats();
-        setStats(s);
-      }
+      // Refresh stats di background
+      const s = await fetchDashboardStats();
+      setStats(s);
     } catch (err) {
-      alert(err.message);
+      // Revert jika API error
+      await loadReports();
+      alert("Gagal mengubah status: " + err.message);
+    }
+  };
+
+  const handlePrioritasChange = async (reportId, newPrioritas) => {
+    // Optimistic update
+    setReports((prev) =>
+      prev.map((r) => (r.id === reportId ? { ...r, prioritas: newPrioritas } : r))
+    );
+    try {
+      await updateReport(reportId, { prioritas: newPrioritas });
+    } catch (err) {
+      await loadReports();
+      alert("Gagal mengubah prioritas: " + err.message);
     }
   };
 
@@ -274,7 +291,22 @@ export default function AdminDashboardPage() {
                         </select>
                       </td>
                       <td>
-                        <span className={`badge badge-${r.prioritas}`}>{r.prioritas}</span>
+                        <select
+                          value={r.prioritas}
+                          onChange={(e) => handlePrioritasChange(r.id, e.target.value)}
+                          style={{
+                            padding: "0.375rem 0.5rem",
+                            borderRadius: 6,
+                            border: "1px solid var(--border)",
+                            fontSize: "0.8125rem",
+                            cursor: "pointer",
+                            fontFamily: "inherit",
+                          }}
+                        >
+                          <option value="tinggi">🔴 Tinggi</option>
+                          <option value="sedang">🟡 Sedang</option>
+                          <option value="rendah">🟢 Rendah</option>
+                        </select>
                       </td>
                       <td style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
                         {formatDate(r.created_at)}

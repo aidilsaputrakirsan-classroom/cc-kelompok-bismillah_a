@@ -1,6 +1,11 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { fetchReports, fetchCategories } from "../services/api";
+import {
+  fetchReports,
+  fetchCategories,
+  updateReportByUser,
+  deleteReport,
+} from "../services/api";
 
 const STATUS_BADGE = {
   menunggu: "badge badge-menunggu",
@@ -20,6 +25,15 @@ export default function DashboardPage() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({ status: "", kategori_id: "", search: "" });
+
+  // Edit modal state
+  const [editModal, setEditModal] = useState(null);
+  const [editForm, setEditForm] = useState({ judul: "", deskripsi: "", lokasi: "", kategori_id: 1 });
+  const [editLoading, setEditLoading] = useState(false);
+
+  // Delete confirmation state
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -46,6 +60,48 @@ export default function DashboardPage() {
   const handleFilter = (e) => {
     e.preventDefault();
     load();
+  };
+
+  const handleEditOpen = (report) => {
+    setEditForm({
+      judul: report.judul,
+      deskripsi: report.deskripsi,
+      lokasi: report.lokasi || "",
+      kategori_id: report.kategori_id,
+    });
+    setEditModal(report);
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    setEditLoading(true);
+    try {
+      await updateReportByUser(editModal.id, {
+        judul: editForm.judul,
+        deskripsi: editForm.deskripsi,
+        lokasi: editForm.lokasi || null,
+        kategori_id: Number(editForm.kategori_id),
+      });
+      setEditModal(null);
+      await load();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleDeleteExecute = async () => {
+    setDeleteLoading(true);
+    try {
+      await deleteReport(deleteConfirm);
+      setDeleteConfirm(null);
+      await load();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   const formatDate = (dt) => {
@@ -117,12 +173,12 @@ export default function DashboardPage() {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
             {reports.map((r) => (
-              <Link
-                key={r.id}
-                to={`/laporan/${r.id}`}
-                style={{ textDecoration: "none", color: "inherit" }}
-              >
-                <div className="card" style={styles.reportCard}>
+              <div key={r.id} className="card" style={{ padding: 0, overflow: "hidden" }}>
+                {/* Clickable area → detail page */}
+                <Link
+                  to={`/laporan/${r.id}`}
+                  style={{ textDecoration: "none", color: "inherit", display: "block", padding: "1.25rem 1.5rem" }}
+                >
                   <div style={styles.cardTop}>
                     <div style={{ flex: 1 }}>
                       <div style={styles.cardMeta}>
@@ -150,12 +206,142 @@ export default function DashboardPage() {
                     <span>📍 {r.lokasi || "Lokasi tidak dicantumkan"}</span>
                     <span>🕐 {formatDate(r.created_at)}</span>
                   </div>
-                </div>
-              </Link>
+                </Link>
+
+                {/* Action bar — hanya tampil jika status "menunggu" */}
+                {r.status === "menunggu" && (
+                  <div style={styles.actionBar}>
+                    <span style={styles.actionHint}>
+                      ℹ️ Laporan masih bisa diedit atau dihapus selagi menunggu
+                    </span>
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => handleEditOpen(r)}
+                      >
+                        ✏️ Edit
+                      </button>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        style={{ color: "#ef4444" }}
+                        onClick={() => setDeleteConfirm(r.id)}
+                      >
+                        🗑️ Hapus
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* ===== EDIT MODAL ===== */}
+      {editModal && (
+        <div style={styles.overlay} onClick={() => setEditModal(null)}>
+          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ fontWeight: 700, marginBottom: "0.5rem", fontSize: "1.125rem" }}>
+              ✏️ Edit Laporan
+            </h3>
+            <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginBottom: "1.5rem" }}>
+              Hanya laporan berstatus <strong>Menunggu</strong> yang bisa diedit.
+            </p>
+            <form onSubmit={handleEditSubmit}>
+              <div className="form-group">
+                <label className="form-label">Judul Laporan *</label>
+                <input
+                  className="form-input"
+                  value={editForm.judul}
+                  onChange={(e) => setEditForm({ ...editForm, judul: e.target.value })}
+                  required
+                  minLength={5}
+                  maxLength={255}
+                  placeholder="Judul singkat laporan"
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Kategori *</label>
+                <select
+                  className="form-select"
+                  value={editForm.kategori_id}
+                  onChange={(e) => setEditForm({ ...editForm, kategori_id: Number(e.target.value) })}
+                >
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.nama_kategori}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Deskripsi *</label>
+                <textarea
+                  className="form-input"
+                  rows={4}
+                  value={editForm.deskripsi}
+                  onChange={(e) => setEditForm({ ...editForm, deskripsi: e.target.value })}
+                  required
+                  minLength={10}
+                  style={{ resize: "vertical" }}
+                  placeholder="Deskripsi detail kejadian"
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Lokasi</label>
+                <input
+                  className="form-input"
+                  value={editForm.lokasi}
+                  onChange={(e) => setEditForm({ ...editForm, lokasi: e.target.value })}
+                  placeholder="Contoh: Gedung A Lantai 2"
+                />
+              </div>
+              <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end", marginTop: "1.5rem" }}>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => setEditModal(null)}
+                  disabled={editLoading}
+                >
+                  Batal
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={editLoading}>
+                  {editLoading ? "Menyimpan..." : "💾 Simpan Perubahan"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ===== DELETE CONFIRMATION MODAL ===== */}
+      {deleteConfirm !== null && (
+        <div style={styles.overlay} onClick={() => !deleteLoading && setDeleteConfirm(null)}>
+          <div style={{ ...styles.modal, maxWidth: 420, textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🗑️</div>
+            <h3 style={{ fontWeight: 700, marginBottom: "0.75rem" }}>Hapus Laporan?</h3>
+            <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginBottom: "2rem", lineHeight: 1.6 }}>
+              Laporan yang dihapus <strong>tidak dapat dikembalikan</strong>.<br />
+              Yakin ingin melanjutkan?
+            </p>
+            <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center" }}>
+              <button
+                className="btn btn-ghost"
+                onClick={() => setDeleteConfirm(null)}
+                disabled={deleteLoading}
+              >
+                Batal
+              </button>
+              <button
+                className="btn"
+                style={{ background: "#ef4444", color: "white", border: "none" }}
+                onClick={handleDeleteExecute}
+                disabled={deleteLoading}
+              >
+                {deleteLoading ? "Menghapus..." : "Ya, Hapus Laporan"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -172,10 +358,6 @@ const styles = {
     borderRadius: "var(--radius)",
     border: "1px solid var(--border)",
     boxShadow: "var(--shadow-sm)",
-  },
-  reportCard: {
-    cursor: "pointer",
-    transition: "all 0.2s ease",
   },
   cardTop: {
     display: "flex",
@@ -215,5 +397,40 @@ const styles = {
     paddingTop: "1rem",
     borderTop: "1px solid var(--border)",
     flexWrap: "wrap",
+  },
+  actionBar: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "0.625rem 1.5rem",
+    background: "#fffbeb",
+    borderTop: "1px solid #fde68a",
+    flexWrap: "wrap",
+    gap: "0.5rem",
+  },
+  actionHint: {
+    fontSize: "0.75rem",
+    color: "#92400e",
+    fontWeight: 500,
+  },
+  overlay: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.5)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 9999,
+    padding: "1rem",
+  },
+  modal: {
+    background: "white",
+    borderRadius: "var(--radius-lg)",
+    padding: "2rem",
+    width: "100%",
+    maxWidth: 560,
+    boxShadow: "var(--shadow-xl)",
+    maxHeight: "90vh",
+    overflowY: "auto",
   },
 };
