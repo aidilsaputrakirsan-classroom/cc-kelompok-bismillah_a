@@ -12,72 +12,73 @@
 services:
   # ==================== DATABASE ====================
   db:
-    image: postgres:16-alpine
-    container_name: laporin-db
-    restart: unless-stopped
+    image: postgres:16-alpine                                           # Menggunakan image PostgreSQL versi ringan berbasis Alpine
+    container_name: laporin-db                                          # Nama container database
+    restart: unless-stopped                                             # Container akan restart otomatis kecuali dihentikan secara manual                     
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: laporin_itk
+      POSTGRES_USER: postgres                                           # Username untuk autentikasi database
+      POSTGRES_PASSWORD: halosalsabila                                  # Password untuk autentikasi database 
+      POSTGRES_DB: laporin_itk                                          # Nama database yang akan dibuat secara otomatis                    
     ports:
-      - "5433:5432"
+      - "5433:5432"                                                     # Meneruskan port 5433 di host ke port 5432 di dalam container
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data                                 # Menyimpan data database secara permanen agar tidak hilang saat container dimatikan
     networks:
-      - laporin_net
+      - laporin_net                                                     # Menghubungkan container ke jaringan internal
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d laporin_itk"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      test: ["CMD-SHELL", "pg_isready -U postgres -d laporin_itk"]      # Memeriksa apakah database sudah siap menerima koneksi                       
+      interval: 10s                                                     # Pemeriksaan dilakukan setiap 10 detik
+      timeout: 5s                                                       # Batas waktu respons setiap pemeriksaan adalah 5 detik                     
+      retries: 5                                                        # Maksimal 5 kali percobaan sebelum dinyatakan gagal
+      start_period: 10s                                                 # Menunggu 10 detik sebelum pemeriksaan pertama dimulai
+
 
   # ==================== BACKEND ====================
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: laporin_itk-backend
-    restart: unless-stopped
+      context: ./backend                                                # Direktori sumber kode backend
+      dockerfile: Dockerfile                                            # File Dockerfile yang digunakan untuk membangun image backend
+    container_name: laporin_itk-backend                                 # Nama container backend 
+    restart: unless-stopped                                             # Container akan restart otomatis kecuali dihentikan secara manual
     env_file:
-      - ./backend/.env.docker
+      - ./backend/.env.docker                                           # File konfigurasi environment khusus untuk lingkungan Docker
     ports:
-      - "8000:8000"
+      - "8000:8000"                                                     # Mengekspos API backend ke localhost pada port 8000
     networks:
-      - laporin_net
+      - laporin_net                                                     # Menghubungkan container ke jaringan internal
     depends_on:
       db:
-        condition: service_healthy
+        condition: service_healthy                                      # Backend hanya akan dijalankan setelah database dinyatakan sehat
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]         # Memeriksa ketersediaan endpoint /health pada backend
+      interval: 30s                                                                                                          # Pemeriksaan dilakukan setiap 30 detik
+      timeout: 10s                                                                                                           # Batas waktu respons setiap pemeriksaan adalah 10 detik
+      retries: 3                                                                                                             # Maksimal 3 kali percobaan sebelum dinyatakan gagal
+      start_period: 15s                                                                                                      # Menunggu 15 detik sebelum pemeriksaan pertama dimulai
 
   # ==================== FRONTEND ====================
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: ./frontend                                               # Direktori sumber kode frontend
+      dockerfile: Dockerfile                                            # File Dockerfile yang digunakan untuk membangun image frontend
       args:
-        VITE_API_URL: http://localhost:8000
-    container_name: laporin_itk-frontend
-    restart: unless-stopped
+        VITE_API_URL: http://localhost:8000                             # URL backend yang disertakan sebagai argumen saat proses build frontend
+    container_name: laporin_itk-frontend                                # Nama container frontend
+    restart: unless-stopped                                             # Container akan restart otomatis kecuali dihentikan secara manual
     ports:
-      - "3000:80"
+      - "3000:80"                                                       
     networks:
-      - laporin_net
+      - laporin_net                                                     # Menghubungkan container ke jaringan internal
     depends_on:
-      - backend
+      - backend                                                         # Frontend hanya akan dijalankan setelah container backend berjalan
 
 # ==================== VOLUMES ====================
 volumes:
   pgdata:
-    name: laporin_itk-pgdata
+    name: laporin_itk-pgdata                                            # Nama volume yang digunakan untuk menyimpan data PostgreSQL secara persisten
 
 # ==================== NETWORKS ====================
 networks:
   laporin_net:
-    name: laporin_itk-network
-    driver: bridge
+    name: laporin_itk-network                                           # Nama jaringan yang menghubungkan seluruh container
+    driver: bridge                                                      # Menggunakan driver bridge sebagai jaringan default Docker
