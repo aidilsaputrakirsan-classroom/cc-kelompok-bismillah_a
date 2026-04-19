@@ -651,9 +651,9 @@ Lihat laporan lengkap di: [`docs/ui-test-result.md`](docs/ui-test-result.md)
 
 | Kategori | Total Test Case | Pass | Fail | Pass Rate |
 |----------|-----------------|------|------|-----------|
-| UI Pengguna | 44 | 44 | 0 | 100% |
+| UI Pengguna | 46 | 46 | 0 | 100% |
 | UI Admin | 13 | 13 | 0 | 100% |
-| **TOTAL** | **57** | **57** | **0** | **100%** |
+| **TOTAL** | **59** | **59** | **0** | **100%** |
 
 ---
 
