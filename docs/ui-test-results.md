@@ -11,9 +11,9 @@ Dokumen ini berisi hasil pengujian antarmuka pengguna (UI) pada aplikasi **Lapor
 
 | Kategori | Total Test Case | Pass | Fail | Pass Rate |
 |----------|-----------------|------|------|-----------|
-| UI Pengguna | 44 | 44 | 0 | 100% |
+| UI Pengguna | 46 | 46 | 0 | 100% |
 | UI Admin | 13 | 13 | 0 | 100% |
-| **TOTAL** | **57** | **57** | **0** | **100%** |
+| **TOTAL** | **59** | **59** | **0** | **100%** |
 
 ---
 
@@ -373,11 +373,27 @@ Status: ✅ PASS
 
 ---
 
-**TC #44 - Logout**  
+**TC #44 - Edit Laporan**  
+Skenario: Klik tombol Edit, ubah data, lalu simpan  
+Expected: Laporan berhasil diupdate  
+Status: ✅ PASS  
+![ui44](image/ui44.png)
+
+---
+
+**TC #45 - Hapus Laporan**  
+Skenario: Klik tombol Hapus lalu konfirmasi  
+Expected: Laporan terhapus dari daftar  
+Status: ✅ PASS  
+![ui45](image/ui45.png)
+
+---
+
+**TC #46 - Logout**  
 Skenario: Klik keluar  
 Expected: Ke login  
 Status: ✅ PASS  
-![ui44](image/ui44.png)
+![ui44](image/ui46.png)
 
 ---
 
