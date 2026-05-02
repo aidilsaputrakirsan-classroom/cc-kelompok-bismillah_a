@@ -1,0 +1,20 @@
+# =============================================
+# CODEOWNERS — Kelompok Bismillah_A
+# =============================================
+# Setiap baris: pola file → username GitHub reviewer
+# Reviewer otomatis ditambahkan saat PR mengubah file terkait
+
+# Backend — Lead Backend (Aditya Laksamana P Butar Butar)
+/backend/                @adtyabtrs22
+
+# Frontend — Lead Frontend (Firni Fauziah Ramadhini)
+/frontend/               @firnifziah
+
+# Docker & Infrastructure — Lead DevOps (Muhammad Novri Aziztra)
+docker-compose.yml       @NoFreee
+/backend/Dockerfile      @NoFreee
+/frontend/Dockerfile     @NoFreee
+
+# Documentation — Lead QA & Docs (Salsabila Putri Zahrani)
+README.md                @salsabila1086
+/docs/                   @salsabila1086
