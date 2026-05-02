@@ -35,9 +35,7 @@ services:
 
   # ==================== BACKEND ====================
   backend:
-    build:
-      context: ./backend                                                # Direktori sumber kode backend
-      dockerfile: Dockerfile                                            # File Dockerfile yang digunakan untuk membangun image backend
+    image: novriaztr/laporin-backend:v2
     container_name: laporin_itk-backend                                 # Nama container backend 
     restart: unless-stopped                                             # Container akan restart otomatis kecuali dihentikan secara manual
     env_file:
@@ -58,11 +56,7 @@ services:
 
   # ==================== FRONTEND ====================
   frontend:
-    build:
-      context: ./frontend                                               # Direktori sumber kode frontend
-      dockerfile: Dockerfile                                            # File Dockerfile yang digunakan untuk membangun image frontend
-      args:
-        VITE_API_URL: http://localhost:8000                             # URL backend yang disertakan sebagai argumen saat proses build frontend
+    image: novriaztr/laporin-frontend:v2
     container_name: laporin_itk-frontend                                # Nama container frontend
     restart: unless-stopped                                             # Container akan restart otomatis kecuali dihentikan secara manual
     ports:
