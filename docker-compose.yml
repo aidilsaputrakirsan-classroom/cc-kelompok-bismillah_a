@@ -17,7 +17,7 @@ services:
     restart: unless-stopped                                             # Container akan restart otomatis kecuali dihentikan secara manual                     
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: [PASSWORD]
+      POSTGRES_PASSWORD: aditya221004
       POSTGRES_DB: laporin_itk
     ports:
       - "5433:5432"                                                     # Meneruskan port 5433 di host ke port 5432 di dalam container
