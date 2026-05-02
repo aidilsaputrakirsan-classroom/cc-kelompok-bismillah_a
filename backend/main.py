@@ -6,9 +6,11 @@ Sistem Pelaporan Institut Teknologi Kalimantan
 import os
 from dotenv import load_dotenv
 from fastapi import FastAPI, Depends, HTTPException, Query, status
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from database import engine, get_db
 from models import Base, User, Unit
@@ -87,9 +89,25 @@ def startup_event():
 # ==================== HEALTH CHECK ====================
 
 @app.get("/health", tags=["System"])
-def health_check():
-    """Cek status API."""
-    return {"status": "healthy", "version": "1.0.0", "app": "LaporIn ITK"}
+def health_check(db: Session = Depends(get_db)):
+    """Health check endpoint — cek status semua komponen."""
+    health = {
+        "status": "healthy",
+        "service": "backend",
+        "version": "1.0.0",
+        "app": "LaporIn ITK",
+    }
+
+    # Cek database connection
+    try:
+        db.execute(text("SELECT 1"))
+        health["database"] = "connected"
+    except Exception as e:
+        health["status"] = "unhealthy"
+        health["database"] = f"error: {str(e)}"
+
+    status_code = 200 if health["status"] == "healthy" else 503
+    return JSONResponse(content=health, status_code=status_code)
 
 
 # ==================== TEAM INFO ====================
