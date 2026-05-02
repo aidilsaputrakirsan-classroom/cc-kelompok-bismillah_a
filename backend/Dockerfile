@@ -46,6 +46,10 @@ RUN chmod +x scripts/wait-for-db.sh
 RUN useradd -m -r appuser && chown -R appuser:appuser /app
 USER appuser
 
+# Healthcheck — Docker akan cek apakah backend responsive
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/docs')" || exit 1
+
 EXPOSE 8000
 
 # Gunakan wait-for-db.sh agar backend tunggu DB dulu

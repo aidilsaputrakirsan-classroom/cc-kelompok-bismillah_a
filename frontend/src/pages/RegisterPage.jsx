@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { register, login } from "../services/api";
+import { ButtonLoading } from "../components/LoadingSpinner";
 
 export default function RegisterPage({ onLogin }) {
   const navigate = useNavigate();
@@ -116,7 +117,7 @@ export default function RegisterPage({ onLogin }) {
               className="btn btn-primary btn-block btn-lg"
               disabled={loading}
             >
-              {loading ? "Memproses..." : "Daftar Sekarang"}
+              {loading ? <ButtonLoading text="Memproses..." /> : "Daftar Sekarang"}
             </button>
           </form>
         </div>

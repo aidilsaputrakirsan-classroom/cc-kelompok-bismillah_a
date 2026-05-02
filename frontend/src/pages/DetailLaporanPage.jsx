@@ -3,6 +3,11 @@ import { useParams, useNavigate } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from "react-leaflet";
 import L from "leaflet";
 import { getReport, fetchComments, createComment, submitFeedback, getUser } from "../services/api";
+import { PageLoading } from "../components/LoadingSpinner";
+import EmptyState from "../components/EmptyState";
+import StatusTimeline from "../components/StatusTimeline";
+import CommentSection from "../components/CommentSection";
+import FeedbackForm from "../components/FeedbackForm";
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -77,12 +82,14 @@ export default function DetailLaporanPage() {
     });
   };
 
-  if (loading) return <div className="page loading-overlay"><div className="spinner" /></div>;
+  if (loading) return <PageLoading />;
   if (!report) return (
-    <div className="page empty-state">
-      <div className="empty-state-icon">❌</div>
-      <h3>Laporan Tidak Ditemukan</h3>
-      <button className="btn btn-primary" onClick={() => navigate("/dashboard")}>Kembali</button>
+    <div className="page">
+      <EmptyState
+        icon="❌"
+        title="Laporan Tidak Ditemukan"
+        action={<button className="btn btn-primary" onClick={() => navigate("/dashboard")}>Kembali</button>}
+      />
     </div>
   );
 
@@ -137,38 +144,18 @@ export default function DetailLaporanPage() {
         </div>
 
         {/* Status Timeline */}
-        <div className="card-flat" style={{ marginBottom: "1.5rem" }}>
-          <h3 style={styles.sectionTitle}>📊 Status Laporan</h3>
-          <div style={styles.statusTimeline}>
-            {["menunggu", "diproses", "selesai"].map((s, i) => {
-              const statuses = ["menunggu", "diproses", "selesai"];
-              const currentIndex = statuses.indexOf(report.status);
-              const isActive = i <= currentIndex;
-              return (
-                <div key={s} style={styles.timelineStep}>
-                  <div style={{
-                    ...styles.timelineDot,
-                    background: isActive ? STATUS_COLORS[s] : "#e2e8f0",
-                    color: isActive ? "white" : "#94a3b8",
-                  }}>
-                    {STATUS_ICONS[s]}
-                  </div>
-                  <div style={{ ...styles.timelineLabel, fontWeight: isActive ? 700 : 400, color: isActive ? "var(--text-primary)" : "var(--text-muted)" }}>
-                    {s.charAt(0).toUpperCase() + s.slice(1)}
-                  </div>
-                  {i < 2 && (
-                    <div style={{ ...styles.timelineLine, background: i < currentIndex ? STATUS_COLORS[statuses[i + 1]] : "#e2e8f0" }} />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        <StatusTimeline currentStatus={report.status} />
 
         {/* Map */}
         {hasMap && (
           <div className="card-flat" style={{ marginBottom: "1.5rem" }}>
-            <h3 style={styles.sectionTitle}>
+            <h3 style={{
+              fontSize: "1rem",
+              fontWeight: 700,
+              marginBottom: "1.25rem",
+              paddingBottom: "0.75rem",
+              borderBottom: "1px solid var(--border)",
+            }}>
               📍 Lokasi Kejadian
               {report.locations?.length > 0 && (
                 <span style={{ fontSize: "0.8125rem", fontWeight: 400, color: "var(--text-muted)", marginLeft: "0.5rem" }}>
@@ -203,157 +190,26 @@ export default function DetailLaporanPage() {
         )}
 
         {/* Comments */}
-        <div className="card-flat" style={{ marginBottom: "1.5rem" }}>
-          <h3 style={styles.sectionTitle}>💬 Percakapan ({comments.length})</h3>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.875rem", marginBottom: "1.25rem" }}>
-            {comments.length === 0 && (
-              <p style={{ color: "var(--text-muted)", fontSize: "0.875rem", fontStyle: "italic" }}>
-                Belum ada percakapan. Berikan komentar atau tanyakan perkembangan laporan.
-              </p>
-            )}
-            {comments.map((c) => {
-              const isMe = c.user_id === currentUser?.id;
-              return (
-                <div key={c.id} style={{ ...styles.comment, alignSelf: isMe ? "flex-end" : "flex-start" }}>
-                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.25rem" }}>
-                    {isMe ? "Anda" : (c.user?.nama || "Admin")} · {formatDate(c.created_at)}
-                  </div>
-                  <div style={{
-                    ...styles.commentBubble,
-                    background: isMe ? "var(--primary)" : "white",
-                    color: isMe ? "white" : "var(--text-primary)",
-                    border: isMe ? "none" : "1px solid var(--border)",
-                  }}>
-                    {c.pesan}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <form onSubmit={handleComment} style={{ display: "flex", gap: "0.75rem" }}>
-            <input
-              className="form-input"
-              placeholder="Tulis pesan atau pertanyaan..."
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              style={{ flex: 1 }}
-              required
-            />
-            <button type="submit" className="btn btn-primary" disabled={commentLoading}>
-              {commentLoading ? "..." : "Kirim"}
-            </button>
-          </form>
-        </div>
+        <CommentSection
+          comments={comments}
+          currentUserId={currentUser?.id}
+          newComment={newComment}
+          onNewCommentChange={setNewComment}
+          loading={commentLoading}
+          onSubmit={handleComment}
+          formatDate={formatDate}
+        />
 
         {/* Feedback (hanya jika selesai) */}
-        {report.status === "selesai" && !feedbackDone && (
-          <div className="card-flat" style={{ border: "2px solid #10b981" }}>
-            <h3 style={{ ...styles.sectionTitle, color: "#10b981" }}>⭐ Berikan Feedback</h3>
-            <form onSubmit={handleFeedback}>
-              <div className="form-group">
-                <label className="form-label">Rating</label>
-                <div style={{ display: "flex", gap: "0.5rem" }}>
-                  {[1, 2, 3, 4, 5].map((r) => (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() => setFeedbackForm({ ...feedbackForm, rating: r })}
-                      style={{
-                        fontSize: "2rem",
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        opacity: r <= feedbackForm.rating ? 1 : 0.3,
-                        transition: "opacity 0.2s",
-                      }}
-                    >
-                      ⭐
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Komentar (opsional)</label>
-                <textarea
-                  className="form-textarea"
-                  rows={3}
-                  placeholder="Bagaimana penanganan laporan Anda?"
-                  value={feedbackForm.komentar}
-                  onChange={(e) => setFeedbackForm({ ...feedbackForm, komentar: e.target.value })}
-                />
-              </div>
-              <button type="submit" className="btn btn-success">Kirim Feedback</button>
-            </form>
-          </div>
-        )}
-
-        {feedbackDone && (
-          <div style={{ background: "#d1fae5", color: "#065f46", padding: "1rem 1.25rem", borderRadius: "var(--radius)", textAlign: "center" }}>
-            🎉 Terima kasih atas feedback Anda!
-          </div>
+        {report.status === "selesai" && (
+          <FeedbackForm
+            form={feedbackForm}
+            onFormChange={setFeedbackForm}
+            onSubmit={handleFeedback}
+            done={feedbackDone}
+          />
         )}
       </div>
     </div>
   );
 }
-
-const styles = {
-  sectionTitle: {
-    fontSize: "1rem",
-    fontWeight: 700,
-    marginBottom: "1.25rem",
-    paddingBottom: "0.75rem",
-    borderBottom: "1px solid var(--border)",
-  },
-  statusTimeline: {
-    display: "flex",
-    alignItems: "flex-start",
-    gap: 0,
-    position: "relative",
-  },
-  timelineStep: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    flex: 1,
-    position: "relative",
-  },
-  timelineDot: {
-    width: 44,
-    height: 44,
-    borderRadius: "50%",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "1.125rem",
-    marginBottom: "0.5rem",
-    zIndex: 1,
-    position: "relative",
-  },
-  timelineLabel: {
-    fontSize: "0.8125rem",
-    textAlign: "center",
-    textTransform: "capitalize",
-  },
-  timelineLine: {
-    position: "absolute",
-    top: 22,
-    left: "calc(50% + 22px)",
-    right: "calc(-50% + 22px)",
-    height: 3,
-    zIndex: 0,
-  },
-  comment: {
-    maxWidth: "75%",
-    display: "flex",
-    flexDirection: "column",
-  },
-  commentBubble: {
-    padding: "0.625rem 0.875rem",
-    borderRadius: 12,
-    fontSize: "0.9rem",
-    lineHeight: 1.5,
-  },
-};

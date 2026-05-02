@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import { fetchCategories, createReport } from "../services/api";
+import { ButtonLoading } from "../components/LoadingSpinner";
 
 // Fix leaflet default icon
 delete L.Icon.Default.prototype._getIconUrl;
@@ -255,7 +256,7 @@ export default function BuatLaporanPage() {
               className="btn btn-primary"
               disabled={loading || !form.kategori_id}
             >
-              {loading ? "Mengirim Laporan..." : "📤 Kirim Laporan"}
+              {loading ? <ButtonLoading text="Mengirim Laporan..." /> : "📤 Kirim Laporan"}
             </button>
           </div>
         </form>

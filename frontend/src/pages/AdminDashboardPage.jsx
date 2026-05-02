@@ -12,6 +12,11 @@ import {
 } from "chart.js";
 import { Doughnut, Bar } from "react-chartjs-2";
 import { fetchDashboardStats, fetchAllReports, updateReport, fetchCategories, fetchUnits, assignReport } from "../services/api";
+import { PageLoading } from "../components/LoadingSpinner";
+import FilterBar from "../components/FilterBar";
+import StatCard from "../components/StatCard";
+import ReportTable from "../components/ReportTable";
+import AssignUnitModal from "../components/AssignUnitModal";
 
 ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
@@ -103,9 +108,14 @@ export default function AdminDashboardPage() {
     return new Date(dt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
   };
 
-  if (loading && !stats) return (
-    <div className="page loading-overlay"><div className="spinner" /></div>
-  );
+  if (loading && !stats) return <PageLoading />;
+
+  const statCards = stats ? [
+    { label: "Total Laporan", value: stats.total_laporan, icon: "📋", bg: "#eff6ff", color: "#2563eb" },
+    { label: "Menunggu", value: stats.menunggu, icon: "⏳", bg: "#fffbeb", color: "#f59e0b" },
+    { label: "Diproses", value: stats.diproses, icon: "🔄", bg: "#eff6ff", color: "#3b82f6" },
+    { label: "Selesai", value: stats.selesai, icon: "✅", bg: "#f0fdf4", color: "#10b981" },
+  ] : [];
 
   const donutData = stats ? {
     labels: Object.keys(stats.kategori_stats),
@@ -155,21 +165,8 @@ export default function AdminDashboardPage() {
           <>
             {/* Stat Cards */}
             <div className="grid-4" style={{ marginBottom: "2rem" }}>
-              {[
-                { label: "Total Laporan", value: stats.total_laporan, icon: "📋", bg: "#eff6ff", color: "#2563eb" },
-                { label: "Menunggu", value: stats.menunggu, icon: "⏳", bg: "#fffbeb", color: "#f59e0b" },
-                { label: "Diproses", value: stats.diproses, icon: "🔄", bg: "#eff6ff", color: "#3b82f6" },
-                { label: "Selesai", value: stats.selesai, icon: "✅", bg: "#f0fdf4", color: "#10b981" },
-              ].map((s) => (
-                <div key={s.label} className="stat-card">
-                  <div className="stat-icon" style={{ background: s.bg }}>
-                    <span style={{ fontSize: "1.5rem" }}>{s.icon}</span>
-                  </div>
-                  <div>
-                    <div className="stat-value" style={{ color: s.color }}>{s.value}</div>
-                    <div className="stat-label">{s.label}</div>
-                  </div>
-                </div>
+              {statCards.map((s) => (
+                <StatCard key={s.label} {...s} />
               ))}
             </div>
 
@@ -203,190 +200,35 @@ export default function AdminDashboardPage() {
         {activeTab === "reports" && (
           <>
             {/* Filter */}
-            <div style={styles.filterBar}>
-              <input
-                className="form-input"
-                placeholder="🔍 Cari laporan..."
-                value={filters.search}
-                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                style={{ flex: 1, maxWidth: 280 }}
-              />
-              <select
-                className="form-select"
-                value={filters.status}
-                onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                style={{ maxWidth: 180 }}
-              >
-                <option value="">Semua Status</option>
-                <option value="menunggu">⏳ Menunggu</option>
-                <option value="diproses">🔄 Diproses</option>
-                <option value="selesai">✅ Selesai</option>
-              </select>
-              <select
-                className="form-select"
-                value={filters.kategori_id}
-                onChange={(e) => setFilters({ ...filters, kategori_id: e.target.value })}
-                style={{ maxWidth: 180 }}
-              >
-                <option value="">Semua Kategori</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>{c.nama_kategori}</option>
-                ))}
-              </select>
-              <button className="btn btn-primary" onClick={loadReports}>Cari</button>
-            </div>
+            <FilterBar
+              filters={filters}
+              onFilterChange={setFilters}
+              categories={categories}
+              onSubmit={loadReports}
+              inputStyle={{ flex: 1, maxWidth: 280 }}
+              selectStyle={{ maxWidth: 180 }}
+            />
 
             {/* Table */}
-            <div className="table-wrapper">
-              <table>
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Judul</th>
-                    <th>Kategori</th>
-                    <th>Status</th>
-                    <th>Prioritas</th>
-                    <th>Tanggal</th>
-                    <th>Aksi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reports.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} style={{ textAlign: "center", color: "var(--text-muted)", padding: "2rem" }}>
-                        Tidak ada laporan ditemukan
-                      </td>
-                    </tr>
-                  ) : reports.map((r) => (
-                    <tr key={r.id}>
-                      <td style={{ color: "var(--text-muted)", fontSize: "0.8125rem" }}>#{r.id}</td>
-                      <td>
-                        <div style={{ fontWeight: 600, maxWidth: 250 }}>
-                          {r.judul}
-                          {r.anonim && <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginLeft: "0.5rem" }}>🕶️</span>}
-                        </div>
-                        <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>{r.lokasi || "—"}</div>
-                      </td>
-                      <td>
-                        <span className={`badge badge-${r.category?.nama_kategori?.toLowerCase()}`}>
-                          {r.category?.nama_kategori}
-                        </span>
-                      </td>
-                      <td>
-                        <select
-                          value={r.status}
-                          onChange={(e) => handleStatusChange(r.id, e.target.value)}
-                          style={{
-                            padding: "0.375rem 0.5rem",
-                            borderRadius: 6,
-                            border: "1px solid var(--border)",
-                            fontSize: "0.8125rem",
-                            cursor: "pointer",
-                            fontFamily: "inherit",
-                          }}
-                        >
-                          <option value="menunggu">⏳ Menunggu</option>
-                          <option value="diproses">🔄 Diproses</option>
-                          <option value="selesai">✅ Selesai</option>
-                        </select>
-                      </td>
-                      <td>
-                        <select
-                          value={r.prioritas}
-                          onChange={(e) => handlePrioritasChange(r.id, e.target.value)}
-                          style={{
-                            padding: "0.375rem 0.5rem",
-                            borderRadius: 6,
-                            border: "1px solid var(--border)",
-                            fontSize: "0.8125rem",
-                            cursor: "pointer",
-                            fontFamily: "inherit",
-                          }}
-                        >
-                          <option value="tinggi">🔴 Tinggi</option>
-                          <option value="sedang">🟡 Sedang</option>
-                          <option value="rendah">🟢 Rendah</option>
-                        </select>
-                      </td>
-                      <td style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
-                        {formatDate(r.created_at)}
-                      </td>
-                      <td>
-                        <div style={{ display: "flex", gap: "0.375rem" }}>
-                          <Link to={`/laporan/${r.id}`} className="btn btn-ghost btn-sm" title="Detail">
-                            👁️
-                          </Link>
-                          <button
-                            className="btn btn-ghost btn-sm"
-                            title="Assign Unit"
-                            onClick={() => setAssignModal(r.id)}
-                          >
-                            📌
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <ReportTable
+              reports={reports}
+              formatDate={formatDate}
+              onStatusChange={handleStatusChange}
+              onPrioritasChange={handlePrioritasChange}
+              onAssign={(id) => setAssignModal(id)}
+            />
           </>
         )}
 
         {/* Assign Modal */}
-        {assignModal && (
-          <div style={styles.modalOverlay} onClick={() => setAssignModal(null)}>
-            <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-              <h3 style={{ marginBottom: "1rem", fontWeight: 700 }}>📌 Tugaskan ke Unit</h3>
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                {units.map((u) => (
-                  <button
-                    key={u.id}
-                    className="btn btn-secondary"
-                    style={{ justifyContent: "flex-start", textAlign: "left" }}
-                    onClick={() => handleAssign(assignModal, u.id)}
-                  >
-                    {u.nama_unit}
-                  </button>
-                ))}
-              </div>
-              <button className="btn btn-ghost btn-sm" style={{ marginTop: "1rem" }} onClick={() => setAssignModal(null)}>
-                Batal
-              </button>
-            </div>
-          </div>
-        )}
+        <AssignUnitModal
+          open={!!assignModal}
+          reportId={assignModal}
+          units={units}
+          onAssign={handleAssign}
+          onClose={() => setAssignModal(null)}
+        />
       </div>
     </div>
   );
 }
-
-const styles = {
-  filterBar: {
-    display: "flex",
-    gap: "0.75rem",
-    marginBottom: "1.25rem",
-    flexWrap: "wrap",
-    alignItems: "center",
-    background: "white",
-    padding: "1rem",
-    borderRadius: "var(--radius)",
-    border: "1px solid var(--border)",
-  },
-  modalOverlay: {
-    position: "fixed",
-    inset: 0,
-    background: "rgba(0,0,0,0.5)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 9999,
-  },
-  modal: {
-    background: "white",
-    borderRadius: "var(--radius-lg)",
-    padding: "2rem",
-    minWidth: 360,
-    boxShadow: "var(--shadow-xl)",
-  },
-};
