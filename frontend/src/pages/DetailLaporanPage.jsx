@@ -31,6 +31,7 @@ export default function DetailLaporanPage() {
   const [commentLoading, setCommentLoading] = useState(false);
   const [feedbackForm, setFeedbackForm] = useState({ rating: 5, komentar: "" });
   const [feedbackDone, setFeedbackDone] = useState(false);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -67,11 +68,14 @@ export default function DetailLaporanPage() {
 
   const handleFeedback = async (e) => {
     e.preventDefault();
+    setFeedbackLoading(true);
     try {
       await submitFeedback({ report_id: Number(id), ...feedbackForm });
       setFeedbackDone(true);
     } catch (err) {
       alert(err.message);
+    } finally {
+      setFeedbackLoading(false);
     }
   };
 
@@ -207,6 +211,7 @@ export default function DetailLaporanPage() {
             onFormChange={setFeedbackForm}
             onSubmit={handleFeedback}
             done={feedbackDone}
+            loading={feedbackLoading}
           />
         )}
       </div>

@@ -18,7 +18,7 @@ const sectionTitle = {
  * @param {function} onSubmit - Handler submit feedback
  * @param {boolean} done - Apakah feedback sudah dikirim
  */
-export default function FeedbackForm({ form, onFormChange, onSubmit, done }) {
+export default function FeedbackForm({ form, onFormChange, onSubmit, done, loading }) {
   if (done) {
     return (
       <div style={{ background: "#d1fae5", color: "#065f46", padding: "1rem 1.25rem", borderRadius: "var(--radius)", textAlign: "center" }}>
@@ -63,7 +63,14 @@ export default function FeedbackForm({ form, onFormChange, onSubmit, done }) {
             onChange={(e) => onFormChange({ ...form, komentar: e.target.value })}
           />
         </div>
-        <button type="submit" className="btn btn-success">Kirim Feedback</button>
+        <button type="submit" className="btn btn-success" disabled={loading}>
+          {loading ? (
+            <>
+              <span className="spinner spinner-sm" style={{ borderTopColor: "white" }} />
+              Mengirim...
+            </>
+          ) : "Kirim Feedback"}
+        </button>
       </form>
     </div>
   );

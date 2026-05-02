@@ -75,7 +75,12 @@ export default function CommentSection({ comments, currentUserId, newComment, on
           required
         />
         <button type="submit" className="btn btn-primary" disabled={loading}>
-          {loading ? "..." : "Kirim"}
+          {loading ? (
+            <>
+              <span className="spinner spinner-sm" style={{ borderTopColor: "white" }} />
+              Mengirim...
+            </>
+          ) : "Kirim"}
         </button>
       </form>
     </div>

@@ -31,6 +31,7 @@ export default function AdminDashboardPage() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [selectedReport, setSelectedReport] = useState(null);
   const [assignModal, setAssignModal] = useState(null);
+  const [assignLoading, setAssignLoading] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -94,12 +95,15 @@ export default function AdminDashboardPage() {
   };
 
   const handleAssign = async (reportId, unitId) => {
+    setAssignLoading(true);
     try {
       await assignReport(reportId, Number(unitId));
       setAssignModal(null);
       alert("Laporan berhasil ditugaskan ke unit.");
     } catch (err) {
       alert(err.message);
+    } finally {
+      setAssignLoading(false);
     }
   };
 
@@ -225,6 +229,7 @@ export default function AdminDashboardPage() {
           open={!!assignModal}
           reportId={assignModal}
           units={units}
+          loading={assignLoading}
           onAssign={handleAssign}
           onClose={() => setAssignModal(null)}
         />
