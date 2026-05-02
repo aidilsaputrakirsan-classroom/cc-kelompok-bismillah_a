@@ -1,0 +1,24 @@
+# ============================================================
+# Docker Compose — Production Overrides
+# ============================================================
+# Gunakan bersama docker-compose.yml:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# ============================================================
+
+services:
+  # ==================== DATABASE ====================
+  db:
+    restart: always                                    # Selalu restart otomatis di production
+    # Tidak expose port ke host di production (keamanan)
+    ports: !reset []
+
+  # ==================== BACKEND ====================
+  backend:
+    restart: always
+    environment:
+      - DEBUG=false                                    # Nonaktifkan debug mode
+      - CORS_ORIGINS=https://yourdomain.com            # Ganti dengan domain production
+
+  # ==================== FRONTEND ====================
+  frontend:
+    restart: always
