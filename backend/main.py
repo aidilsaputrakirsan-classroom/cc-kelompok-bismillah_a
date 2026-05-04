@@ -234,7 +234,8 @@ def daftar_laporan(
     skip: int = Query(0, ge=0, description="Offset pagination"),
     limit: int = Query(20, ge=1, le=100, description="Jumlah per halaman"),
     status: str | None = Query(None, description="Filter: menunggu / diproses / selesai"),
-    kategori_id: int | None = Query(None, description="Filter kategori"),
+    kategori_id: int | None = Query(None, description="Filter berdasarkan ID kategori"),
+    category: str | None = Query(None, description="Filter berdasarkan nama kategori: Kehilangan / Fasilitas / Perundungan"),
     search: str | None = Query(None, description="Cari berdasarkan judul/deskripsi/lokasi"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -252,6 +253,7 @@ def daftar_laporan(
         user_id=current_user.id,
         status=status,
         kategori_id=kategori_id,
+        kategori_nama=category,
         search=search,
         is_admin=False,
     )
@@ -449,6 +451,7 @@ def semua_laporan(
     limit: int = Query(20, ge=1, le=100),
     status: str | None = Query(None),
     kategori_id: int | None = Query(None),
+    category: str | None = Query(None, description="Filter berdasarkan nama kategori: Kehilangan / Fasilitas / Perundungan"),
     search: str | None = Query(None),
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
@@ -460,6 +463,7 @@ def semua_laporan(
         limit=limit,
         status=status,
         kategori_id=kategori_id,
+        kategori_nama=category,
         search=search,
         is_admin=True,
     )
