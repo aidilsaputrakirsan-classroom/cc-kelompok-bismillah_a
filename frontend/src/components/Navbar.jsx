@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { clearToken, getUser } from "../services/api";
 
-export default function Navbar() {
+export default function Navbar({ darkMode, setDarkMode }) { // ✅ TAMBAH PROPS
   const location = useLocation();
   const navigate = useNavigate();
   const user = getUser();
@@ -10,7 +10,6 @@ export default function Navbar() {
 
   const handleLogout = () => {
     setLogoutLoading(true);
-    // Delay agar loading state terlihat jelas oleh user
     setTimeout(() => {
       clearToken();
       navigate("/login");
@@ -49,6 +48,7 @@ export default function Navbar() {
 
       <nav className="navbar">
         <div className="navbar-inner">
+          
           {/* Brand */}
           <Link to={user ? (user.role === "admin" ? "/admin" : "/dashboard") : "/"} className="navbar-brand">
             <div className="navbar-logo">📋</div>
@@ -74,11 +74,22 @@ export default function Navbar() {
 
           {/* User Area */}
           <div className="navbar-user">
+
+            {/* ✅ DARK MODE BUTTON */}
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => setDarkMode(!darkMode)}
+              title="Toggle Dark Mode"
+            >
+              {darkMode ? "☀️" : "🌙"}
+            </button>
+
             {user ? (
               <>
                 <div className="navbar-avatar" title={user.nama}>
                   {initials}
                 </div>
+
                 <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.2 }}>
                   <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)" }}>
                     {user.nama?.split(" ")[0]}
@@ -87,6 +98,7 @@ export default function Navbar() {
                     {user.role === "admin" ? "Admin" : "Pelapor"}
                   </span>
                 </div>
+
                 <button
                   className="btn btn-ghost btn-sm"
                   onClick={handleLogout}
@@ -107,6 +119,7 @@ export default function Navbar() {
               </>
             )}
           </div>
+
         </div>
       </nav>
     </>
