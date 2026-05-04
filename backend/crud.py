@@ -188,6 +188,7 @@ def get_reports(
     user_id: int | None = None,
     status: str | None = None,
     kategori_id: int | None = None,
+    kategori_nama: str | None = None,
     search: str | None = None,
     is_admin: bool = False,
 ):
@@ -210,6 +211,11 @@ def get_reports(
 
     if kategori_id:
         query = query.filter(Report.kategori_id == kategori_id)
+
+    if kategori_nama:
+        query = query.join(Report.category).filter(
+            Category.nama_kategori.ilike(kategori_nama)
+        )
 
     if search:
         query = query.filter(
