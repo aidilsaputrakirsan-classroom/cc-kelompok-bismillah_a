@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { clearToken, getUser } from "../services/api";
 
-export default function Navbar({ darkMode, setDarkMode }) { // ✅ TAMBAH PROPS
+export default function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const user = getUser();
@@ -10,6 +10,7 @@ export default function Navbar({ darkMode, setDarkMode }) { // ✅ TAMBAH PROPS
 
   const handleLogout = () => {
     setLogoutLoading(true);
+    // Delay agar loading state terlihat jelas oleh user
     setTimeout(() => {
       clearToken();
       navigate("/login");
@@ -48,7 +49,6 @@ export default function Navbar({ darkMode, setDarkMode }) { // ✅ TAMBAH PROPS
 
       <nav className="navbar">
         <div className="navbar-inner">
-          
           {/* Brand */}
           <Link to={user ? (user.role === "admin" ? "/admin" : "/dashboard") : "/"} className="navbar-brand">
             <div className="navbar-logo">📋</div>
@@ -74,22 +74,11 @@ export default function Navbar({ darkMode, setDarkMode }) { // ✅ TAMBAH PROPS
 
           {/* User Area */}
           <div className="navbar-user">
-
-            {/* ✅ DARK MODE BUTTON */}
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={() => setDarkMode(!darkMode)}
-              title="Toggle Dark Mode"
-            >
-              {darkMode ? "☀️" : "🌙"}
-            </button>
-
             {user ? (
               <>
                 <div className="navbar-avatar" title={user.nama}>
                   {initials}
                 </div>
-
                 <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.2 }}>
                   <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text-primary)" }}>
                     {user.nama?.split(" ")[0]}
@@ -98,7 +87,7 @@ export default function Navbar({ darkMode, setDarkMode }) { // ✅ TAMBAH PROPS
                     {user.role === "admin" ? "Admin" : "Pelapor"}
                   </span>
                 </div>
-
+                <DarkModeToggle />
                 <button
                   className="btn btn-ghost btn-sm"
                   onClick={handleLogout}
@@ -114,14 +103,48 @@ export default function Navbar({ darkMode, setDarkMode }) { // ✅ TAMBAH PROPS
               </>
             ) : (
               <>
+                <DarkModeToggle />
                 <Link to="/login" className="btn btn-ghost btn-sm">Masuk</Link>
                 <Link to="/register" className="btn btn-primary btn-sm">Daftar</Link>
               </>
             )}
           </div>
-
         </div>
       </nav>
     </>
+  );
+}
+
+// ============================================================
+// DARK MODE TOGGLE BUTTON
+// ============================================================
+
+function DarkModeToggle() {
+  const [isDark, setIsDark] = useState(() => {
+    // Baca preferensi dari localStorage saat pertama kali render
+    const saved = localStorage.getItem("darkMode");
+    if (saved !== null) return saved === "true";
+    // Fallback: ikuti preferensi sistem
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  });
+
+  const toggle = () => {
+    const next = !isDark;
+    setIsDark(next);
+    // Simpan preferensi ke localStorage
+    localStorage.setItem("darkMode", String(next));
+    // Tambah/hapus class "dark" di <body>
+    document.body.classList.toggle("dark", next);
+  };
+
+  return (
+    <button
+      className="btn btn-ghost btn-sm dark-mode-toggle"
+      onClick={toggle}
+      title={isDark ? "Beralih ke Light Mode" : "Beralih ke Dark Mode"}
+      aria-label={isDark ? "Aktifkan Light Mode" : "Aktifkan Dark Mode"}
+    >
+      {isDark ? "☀️" : "🌙"}
+    </button>
   );
 }
