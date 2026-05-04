@@ -87,6 +87,7 @@ export default function Navbar() {
                     {user.role === "admin" ? "Admin" : "Pelapor"}
                   </span>
                 </div>
+                <DarkModeToggle />
                 <button
                   className="btn btn-ghost btn-sm"
                   onClick={handleLogout}
@@ -102,6 +103,7 @@ export default function Navbar() {
               </>
             ) : (
               <>
+                <DarkModeToggle />
                 <Link to="/login" className="btn btn-ghost btn-sm">Masuk</Link>
                 <Link to="/register" className="btn btn-primary btn-sm">Daftar</Link>
               </>
@@ -110,5 +112,39 @@ export default function Navbar() {
         </div>
       </nav>
     </>
+  );
+}
+
+// ============================================================
+// DARK MODE TOGGLE BUTTON
+// ============================================================
+
+function DarkModeToggle() {
+  const [isDark, setIsDark] = useState(() => {
+    // Baca preferensi dari localStorage saat pertama kali render
+    const saved = localStorage.getItem("darkMode");
+    if (saved !== null) return saved === "true";
+    // Fallback: ikuti preferensi sistem
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  });
+
+  const toggle = () => {
+    const next = !isDark;
+    setIsDark(next);
+    // Simpan preferensi ke localStorage
+    localStorage.setItem("darkMode", String(next));
+    // Tambah/hapus class "dark" di <body>
+    document.body.classList.toggle("dark", next);
+  };
+
+  return (
+    <button
+      className="btn btn-ghost btn-sm dark-mode-toggle"
+      onClick={toggle}
+      title={isDark ? "Beralih ke Light Mode" : "Beralih ke Dark Mode"}
+      aria-label={isDark ? "Aktifkan Light Mode" : "Aktifkan Dark Mode"}
+    >
+      {isDark ? "☀️" : "🌙"}
+    </button>
   );
 }

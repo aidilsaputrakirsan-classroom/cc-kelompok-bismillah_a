@@ -4,6 +4,13 @@ import './index.css'
 import App from './App.jsx'
 import './App.css'
 
+// Inisialisasi dark mode dari localStorage sebelum render
+// agar tidak ada "flash" putih saat halaman pertama dimuat
+const savedDark = localStorage.getItem("darkMode");
+if (savedDark === "true") {
+  document.body.classList.add("dark");
+}
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <App />
