@@ -9,6 +9,9 @@
 
 ---
 
+![CI](https://github.com/aidilsaputrakirsan-classroom/cc-kelompok-bismillah_a/actions/workflows/ci.yml/badge.svg)
+---
+
 ## 🎯 Deskripsi
 
 **LaporIn ITK** adalah platform pelaporan digital yang dirancang khusus untuk civitas akademika Institut Teknologi Kalimantan (ITK). Platform ini hadir sebagai jembatan antara pengguna kampus dan pihak yang berwenang — memungkinkan proses pelaporan yang selama ini dilakukan secara manual, lisan, atau tidak terstruktur, kini dapat dilakukan secara digital, terdokumentasi, dan dapat ditindaklanjuti dengan lebih efisien.
