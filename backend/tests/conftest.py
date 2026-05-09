@@ -73,3 +73,27 @@ def auth_headers(client):
     })
     token = response.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def admin_headers(client, db_session):
+    """Helper: buat admin user langsung di DB, login, return auth headers."""
+    from passlib.context import CryptContext
+    from models import User
+
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    admin = User(
+        email="admin@student.itk.ac.id",
+        nama="Admin User",
+        hashed_password=pwd_context.hash("Admin@1234"),
+        role="admin",
+    )
+    db_session.add(admin)
+    db_session.commit()
+
+    response = client.post("/auth/login", json={
+        "email": "admin@student.itk.ac.id",
+        "password": "Admin@1234"
+    })
+    token = response.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
