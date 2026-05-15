@@ -213,6 +213,28 @@ class ReportListResponse(BaseModel):
 
 
 # ============================================================
+# MAP REPORT SCHEMAS
+# ============================================================
+
+class MapReportResponse(BaseModel):
+    """Schema ringan untuk peta sebaran — hanya field yang dibutuhkan pin peta."""
+    id: int
+    judul: str
+    lokasi: Optional[str] = None
+    latitude: float
+    longitude: float
+    kategori_id: int
+    kategori_nama: str
+    status: str
+    prioritas: str
+    tanggal_kejadian: Optional[date] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ============================================================
 # REPORT LOCATION (TRACKING) SCHEMAS
 # ============================================================
 

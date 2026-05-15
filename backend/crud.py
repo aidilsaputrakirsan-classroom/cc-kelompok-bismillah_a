@@ -241,6 +241,47 @@ def get_report(db: Session, report_id: int) -> Report | None:
     ).filter(Report.id == report_id).first()
 
 
+def get_map_reports(
+    db: Session,
+    status: str | None = None,
+    kategori_id: int | None = None,
+) -> list[dict]:
+    """
+    Ambil semua laporan yang punya koordinat untuk peta sebaran.
+    Return data ringan (tanpa info user demi privasi).
+    """
+    query = db.query(Report).options(
+        joinedload(Report.category),
+    ).filter(
+        Report.latitude.isnot(None),
+        Report.longitude.isnot(None),
+    )
+
+    if status:
+        query = query.filter(Report.status == status)
+    if kategori_id:
+        query = query.filter(Report.kategori_id == kategori_id)
+
+    reports = query.order_by(Report.created_at.desc()).all()
+
+    return [
+        {
+            "id": r.id,
+            "judul": r.judul,
+            "lokasi": r.lokasi,
+            "latitude": r.latitude,
+            "longitude": r.longitude,
+            "kategori_id": r.kategori_id,
+            "kategori_nama": r.category.nama_kategori if r.category else "Lainnya",
+            "status": r.status,
+            "prioritas": r.prioritas,
+            "tanggal_kejadian": r.tanggal_kejadian,
+            "created_at": r.created_at,
+        }
+        for r in reports
+    ]
+
+
 def update_report(
     db: Session,
     report_id: int,
