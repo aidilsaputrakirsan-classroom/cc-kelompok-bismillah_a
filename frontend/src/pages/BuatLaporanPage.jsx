@@ -14,7 +14,7 @@ L.Icon.Default.mergeOptions({
 });
 
 // ITK coordinates
-const ITK_CENTER = [-1.2655, 116.8308];
+const ITK_CENTER = [-1.1497004212549657, 116.8626097222715];
 
 function LocationMarker({ position, setPosition }) {
   useMapEvents({

@@ -7,6 +7,7 @@ import DashboardPage from "./pages/DashboardPage";
 import BuatLaporanPage from "./pages/BuatLaporanPage";
 import DetailLaporanPage from "./pages/DetailLaporanPage";
 import AdminDashboardPage from "./pages/AdminDashboardPage";
+import PetaSebaranPage from "./pages/PetaSebaranPage";
 
 // ============================================================
 // ROUTE GUARDS
@@ -156,6 +157,12 @@ export default function App() {
           <RequireAuth>
             <Navbar />
             <DetailLaporanPage />
+          </RequireAuth>
+        } />
+        <Route path="/peta" element={
+          <RequireAuth>
+            <Navbar />
+            <PetaSebaranPage />
           </RequireAuth>
         } />
 

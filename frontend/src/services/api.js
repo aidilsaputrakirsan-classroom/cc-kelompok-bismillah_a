@@ -130,6 +130,14 @@ export const fetchReports = async ({ skip = 0, limit = 20, status, kategori_id, 
   return request("GET", `/reports?${params}`);
 };
 
+export const fetchMapReports = async ({ status, kategori_id } = {}) => {
+  const params = new URLSearchParams();
+  if (status) params.set("status", status);
+  if (kategori_id) params.set("kategori_id", kategori_id);
+  const qs = params.toString();
+  return request("GET", `/reports/map${qs ? `?${qs}` : ""}`);
+};
+
 export const getReport = async (id) => {
   return request("GET", `/reports/${id}`);
 };
