@@ -3,9 +3,9 @@
  * Semua komunikasi dengan backend FastAPI
  */
 
-// Gunakan proxy Vite di development (BASE_URL kosong = same origin)
-// Vite proxy (vite.config.js) yang akan forward ke localhost:8000
-const BASE_URL = "";
+// Production: VITE_API_URL di-inject oleh CD pipeline → https://domain.my.id/api
+// Development: kosong = same origin (Vite proxy forward ke localhost:8000)
+const BASE_URL = import.meta.env.VITE_API_URL || "";
 
 // ============================================================
 // TOKEN MANAGEMENT
