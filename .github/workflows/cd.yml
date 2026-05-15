@@ -1,0 +1,151 @@
+name: CD — Deploy ke DeployCC
+
+on:
+  workflow_run:
+    workflows: ["CI Pipeline"]   
+    types:
+      - completed
+
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Deploy mode'
+        required: false
+        default: 'full'
+        type: choice
+        options:
+          - full
+
+# ─────────────────────────────────────────────
+#  SECRETS yang harus diset di repo GitHub:
+#  Settings → Secrets and variables → Actions
+#
+#  DEPLOY_URL   → https://deploycc.akhzafachrozy.my.id
+#  DEPLOY_KEY   → API key (RAHASIA123 atau sesuai config)
+#  DEPLOY_REPO  → nama repo/slug, contoh: my-app
+# ─────────────────────────────────────────────
+
+jobs:
+  deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      # ── 1. Checkout ──────────────────────────────────────
+      - name: Checkout kode
+        uses: actions/checkout@v4
+
+      # ── 2. Setup Node (untuk build React) ─────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      # ── 3. Install & Build React ───────────────────────────
+      - name: Install dependencies frontend
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build React (production)
+        working-directory: frontend
+        run: npm run build
+        env:
+          NODE_ENV: production
+          # Tambahkan env frontend kamu di sini jika perlu, contoh:
+          # VITE_API_URL: /api
+
+      # ── 4. Buat ZIP (frontend source + backend source) ─────
+      #
+      #  Kita zip:
+      #    - frontend/   → source React (script di server yang build ulang
+      #                    ATAU kamu bisa zip hasil build saja, lihat catatan)
+      #    - backend/    → source Python
+      #
+      #  Yang di-EXCLUDE dari ZIP (tidak perlu dikirim):
+      #    - frontend/node_modules/  → terlalu besar
+      #    - frontend/dist/ atau build/  → server build sendiri
+      #    - backend/venv/           → server buat sendiri
+      #    - backend/__pycache__/    → generated
+      #    - .git/                   → tidak perlu
+      # ──────────────────────────────────────────────────────
+      - name: Buat ZIP untuk deploy
+        run: |
+          zip -r deploy.zip . \
+            --exclude "frontend/node_modules/*" \
+            --exclude "frontend/.next/*" \
+            --exclude "frontend/dist/*" \
+            --exclude "frontend/build/*" \
+            --exclude "backend/venv/*" \
+            --exclude "backend/__pycache__/*" \
+            --exclude "backend/*.pyc" \
+            --exclude ".git/*" \
+            --exclude ".github/*" \
+            --exclude "*.zip"
+
+          echo "Ukuran ZIP: $(du -sh deploy.zip | cut -f1)"
+
+      # ── 5. Upload ke DeployCC ──────────────────────────────
+      - name: Deploy ke server
+        run: |
+          RESPONSE=$(curl -sS --max-time 300 \
+            -X POST "${{ secrets.DEPLOY_URL }}" \
+            -F "key=${{ secrets.DEPLOY_KEY }}" \
+            -F "repo=${{ secrets.DEPLOY_REPO }}" \
+            -F "mode=full" \
+            -F "file=@deploy.zip" \
+            -A "GitHub-Actions/deploycc" \
+            -w "\n---HTTP_CODE:%{http_code}")
+
+          HTTP_CODE=$(echo "$RESPONSE" | grep -o 'HTTP_CODE:[0-9]*' | cut -d: -f2)
+          BODY=$(echo "$RESPONSE" | sed '/HTTP_CODE:/d')
+
+          echo "──────────────────────────────────"
+          echo "HTTP Status: $HTTP_CODE"
+          echo "──────────────────────────────────"
+          echo "$BODY"
+          echo "──────────────────────────────────"
+
+          if echo "$BODY" | grep -q "DEPLOYCC_ERROR"; then
+            echo "❌ Deploy GAGAL — ada error dari server"
+            exit 1
+          fi
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ Deploy GAGAL — HTTP $HTTP_CODE"
+            exit 1
+          fi
+
+          if echo "$BODY" | grep -q "DEPLOYCC_END"; then
+            echo "✅ Deploy BERHASIL"
+          else
+            echo "⚠️  Response tidak lengkap — cek log server"
+            exit 1
+          fi
+
+      # ── 6. Tampilkan ringkasan ─────────────────────────────
+      - name: Ringkasan deploy
+        if: success()
+        run: |
+          echo "## ✅ Deploy Berhasil" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Key | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Repo | \`${{ secrets.DEPLOY_REPO }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Branch | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Trigger | ${{ github.event_name }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Waktu | $(date +'%Y-%m-%d %H:%M:%S UTC') |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Ringkasan gagal
+        if: failure()
+        run: |
+          echo "## ❌ Deploy Gagal" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Cek log di step **Deploy ke server** untuk detail error." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Tips debug:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Pastikan secrets \`DEPLOY_URL\`, \`DEPLOY_KEY\`, \`DEPLOY_REPO\` sudah diset" >> $GITHUB_STEP_SUMMARY
+          echo "- Cek log server via SSH: \`tail -f /var/log/deploycc/${{ secrets.DEPLOY_REPO }}.log\`" >> $GITHUB_STEP_SUMMARY
