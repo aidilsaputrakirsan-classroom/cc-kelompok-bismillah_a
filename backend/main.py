@@ -20,6 +20,8 @@ from schemas import (
     # Reports
     ReportCreate, ReportUpdate, ReportUserUpdate, ReportResponse, ReportListResponse,
     ReportLocationCreate, ReportLocationResponse,
+    # Map
+    MapReportResponse,
     # Categories & Units
     CategoryResponse, UnitResponse,
     # Comments
@@ -227,6 +229,23 @@ def buat_laporan(
         raise HTTPException(status_code=404, detail="Kategori tidak ditemukan")
 
     return crud.create_report(db=db, report_data=report_data, user_id=current_user.id)
+
+
+@app.get("/reports/map", response_model=list[MapReportResponse], tags=["Peta Sebaran"])
+def peta_sebaran(
+    status: str | None = Query(None, description="Filter: menunggu / diproses / selesai"),
+    kategori_id: int | None = Query(None, description="Filter berdasarkan ID kategori"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Ambil semua laporan yang memiliki koordinat untuk peta sebaran kampus ITK.
+    **Membutuhkan autentikasi.**
+
+    Response ringan — hanya field yang dibutuhkan untuk pin di peta.
+    Data pelapor tidak disertakan demi privasi.
+    """
+    return crud.get_map_reports(db=db, status=status, kategori_id=kategori_id)
 
 
 @app.get("/reports", response_model=ReportListResponse, tags=["Laporan"])
