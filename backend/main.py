@@ -12,6 +12,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
+from config import settings, logger
 from database import engine, get_db
 from models import Base, User, Unit
 from schemas import (
@@ -44,18 +45,11 @@ load_dotenv()
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
-    title="LaporIn ITK API",
-    description=(
-        "**Sistem Pelaporan Institut Teknologi Kalimantan**\n\n"
-        "API untuk mengelola laporan kehilangan, kerusakan fasilitas, dan perundungan di lingkungan ITK.\n\n"
-        "## Autentikasi\n"
-        "Gunakan endpoint `/auth/login` untuk mendapatkan token JWT, "
-        "lalu klik **Authorize** dan masukkan token di field `Bearer`.\n\n"
-        "## Role\n"
-        "- `user` — pelapor: bisa buat dan lihat laporan sendiri\n"
-        "- `admin` — pengelola: bisa lihat semua laporan, ubah status, assign unit\n"
-    ),
-    version="1.0.0",
+    title=settings.APP_TITLE,
+    description=settings.APP_DESCRIPTION,
+    version=settings.APP_VERSION,
+    docs_url=settings.docs_url,
+    redoc_url=settings.redoc_url,
     contact={
         "name": "Tim Bismillah_A",
         "url": "https://github.com/aidilsaputrakirsan-classroom/cc-kelompok-bismillah_a",
@@ -63,12 +57,9 @@ app = FastAPI(
 )
 
 # ==================== CORS ====================
-allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173")
-origins_list = [origin.strip() for origin in allowed_origins.split(",")]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins_list,
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -79,7 +70,9 @@ app.add_middleware(
 
 @app.on_event("startup")
 def startup_event():
-    """Seed data awal saat aplikasi pertama kali dijalankan."""
+    """Seed data awal dan log konfigurasi aktif saat startup."""
+    logger.info(f"🚀 LaporIn ITK starting up — environment: {settings.ENVIRONMENT}")
+    logger.info(f"⚙️  Config: {settings.summary()}")
     db = next(get_db())
     try:
         crud.seed_categories(db)
