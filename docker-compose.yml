@@ -1,84 +1,155 @@
-# ============================================================
-# Docker Compose — Cloud App
-# Komputasi Awan — SI ITK
-# ============================================================
+# ==============================================
+# Docker Compose — Microservices Architecture
+# LaporIn ITK — Tim Bismillah_A
+# ==============================================
+# Services:
+# 1. auth-db: PostgreSQL untuk Auth Service
+# 2. report-db: PostgreSQL untuk Report Service
+# 3. auth-service: Authentication (port 8001)
+# 4. report-service: Laporan CRUD (port 8002)
+# 5. frontend: React app (port 3000)
+# 6. gateway: Nginx reverse proxy (port 80)
+# ==============================================
 # Usage:
-#   docker compose up -d          # Start semua services
-#   docker compose down            # Stop & remove
-#   docker compose logs -f         # Lihat logs
-#   docker compose ps              # Status services
-# ============================================================
+#   docker compose -f docker-compose.microservices.yml up --build -d
+#   docker compose -f docker-compose.microservices.yml down
+#   docker compose -f docker-compose.microservices.yml logs -f
 
 services:
-  # ==================== DATABASE ====================
-  db:
-    image: postgres:16-alpine                                           # Menggunakan image PostgreSQL versi ringan berbasis Alpine
-    container_name: laporin-db                                          # Nama container database
-    restart: unless-stopped                                             # Container akan restart otomatis kecuali dihentikan secara manual                     
+  # ================================
+  # DATABASES (Database per Service)
+  # ================================
+  auth-db:
+    image: postgres:16-alpine
+    container_name: laporin-auth-db
+    restart: unless-stopped
     environment:
+      POSTGRES_DB: auth_db
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: aditya221004
-      POSTGRES_DB: laporin_itk
-    ports:
-      - "5433:5432"                                                     # Meneruskan port 5433 di host ke port 5432 di dalam container
     volumes:
-      - pgdata:/var/lib/postgresql/data                                 # Menyimpan data database secara permanen agar tidak hilang saat container dimatikan
+      - auth_db_data:/var/lib/postgresql/data
     networks:
-      - laporin_net                                                     # Menghubungkan container ke jaringan internal
+      - laporin_ms_net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d laporin_itk"]      # Memeriksa apakah database sudah siap menerima koneksi                       
-      interval: 10s                                                     # Pemeriksaan dilakukan setiap 10 detik
-      timeout: 5s                                                       # Batas waktu respons setiap pemeriksaan adalah 5 detik                     
-      retries: 5                                                        # Maksimal 5 kali percobaan sebelum dinyatakan gagal
-      start_period: 10s                                                 # Menunggu 10 detik sebelum pemeriksaan pertama dimulai
+      test: ["CMD-SHELL", "pg_isready -U postgres -d auth_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
-
-  # ==================== BACKEND ====================
-  backend:
-    build:
-      context: ./backend                                                # Direktori sumber kode backend
-      dockerfile: Dockerfile                                            # File Dockerfile yang digunakan untuk membangun image backend
-    container_name: laporin_itk-backend                                 # Nama container backend 
-    restart: unless-stopped                                             # Container akan restart otomatis kecuali dihentikan secara manual
-    env_file:
-      - ./backend/.env.docker                                           # File konfigurasi environment khusus untuk lingkungan Docker
-    ports:
-      - "8000:8000"                                                     # Mengekspos API backend ke localhost pada port 8000
+  report-db:
+    image: postgres:16-alpine
+    container_name: laporin-report-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: report_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: aditya221004
+    volumes:
+      - report_db_data:/var/lib/postgresql/data
     networks:
-      - laporin_net                                                     # Menghubungkan container ke jaringan internal
+      - laporin_ms_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d report_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ================================
+  # BACKEND SERVICES
+  # ================================
+  auth-service:
+    build: ./services/auth-service
+    container_name: laporin-auth-service
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://postgres:aditya221004@auth-db:5432/auth_db
+      SECRET_KEY: ${SECRET_KEY:-09e5d86538ca68c6b8a0bcdaea298fd6287b662a6a7b721a3b0e493f877483dc}
+      ALGORITHM: HS256
+      TOKEN_EXPIRE_MINUTES: "60"
+      CORS_ORIGINS: "http://localhost,http://localhost:5173,http://localhost:3000"
     depends_on:
-      db:
-        condition: service_healthy                                      # Backend hanya akan dijalankan setelah database dinyatakan sehat
+      auth-db:
+        condition: service_healthy
+    networks:
+      - laporin_ms_net
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]         # Memeriksa ketersediaan endpoint /health pada backend
-      interval: 30s                                                                                                          # Pemeriksaan dilakukan setiap 30 detik
-      timeout: 10s                                                                                                           # Batas waktu respons setiap pemeriksaan adalah 10 detik
-      retries: 3                                                                                                             # Maksimal 3 kali percobaan sebelum dinyatakan gagal
-      start_period: 15s                                                                                                      # Menunggu 15 detik sebelum pemeriksaan pertama dimulai
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
 
-  # ==================== FRONTEND ====================
+  report-service:
+    build: ./services/report-service
+    container_name: laporin-report-service
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://postgres:aditya221004@report-db:5432/report_db
+      AUTH_SERVICE_URL: http://auth-service:8001
+      CORS_ORIGINS: "http://localhost,http://localhost:5173,http://localhost:3000"
+    depends_on:
+      report-db:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+    networks:
+      - laporin_ms_net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # ================================
+  # FRONTEND
+  # ================================
   frontend:
     build:
-      context: ./frontend                                               # Direktori sumber kode frontend
-      dockerfile: Dockerfile                                            # File Dockerfile yang digunakan untuk membangun image frontend
+      context: ./frontend
+      dockerfile: Dockerfile
       args:
-        VITE_API_URL: http://localhost:8000                             # URL backend yang disertakan sebagai argumen saat proses build frontend
-    container_name: laporin_itk-frontend                                # Nama container frontend
-    restart: unless-stopped                                             # Container akan restart otomatis kecuali dihentikan secara manual
-    ports:
-      - "3000:80"                                                       
+        VITE_API_URL: http://localhost
+    container_name: laporin-frontend
+    restart: unless-stopped
     networks:
-      - laporin_net                                                     # Menghubungkan container ke jaringan internal
+      - laporin_ms_net
     depends_on:
-      - backend                                                         # Frontend hanya akan dijalankan setelah container backend berjalan
+      - auth-service
+      - report-service
 
-# ==================== VOLUMES ====================
+  # ================================
+  # API GATEWAY
+  # ================================
+  gateway:
+    image: nginx:alpine
+    container_name: laporin-gateway
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./services/gateway/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - auth-service
+      - report-service
+      - frontend
+    networks:
+      - laporin_ms_net
+
+# ================================
+# VOLUMES
+# ================================
 volumes:
-  pgdata:
-    name: laporin_itk-pgdata                                            # Nama volume yang digunakan untuk menyimpan data PostgreSQL secara persisten
+  auth_db_data:
+    name: laporin-auth-db-data
+  report_db_data:
+    name: laporin-report-db-data
 
-# ==================== NETWORKS ====================
+# ================================
+# NETWORKS
+# ================================
 networks:
-  laporin_net:
-    name: laporin_itk-network                                           # Nama jaringan yang menghubungkan seluruh container
-    driver: bridge                                                      # Menggunakan driver bridge sebagai jaringan default Docker
+  laporin_ms_net:
+    name: laporin-microservices-network
+    driver: bridge
