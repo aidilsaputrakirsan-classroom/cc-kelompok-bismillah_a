@@ -35,6 +35,8 @@ from schemas import (
     AssignmentCreate, AssignmentResponse,
     # Admin
     DashboardStats,
+    # Stats (Lead Backend — Modul 12)
+    ReportStats,
 )
 from auth_client import verify_token_with_auth_service, require_admin_from_auth_service
 import crud
@@ -154,6 +156,29 @@ async def daftar_laporan(
         search=search,
         is_admin=False,
     )
+
+
+# ==================== REPORT STATS (Lead Backend — Modul 12) ====================
+
+@app.get("/reports/stats", response_model=ReportStats, tags=["Laporan"])
+async def statistik_laporan_user(
+    db: Session = Depends(get_db),
+    user: dict = Depends(verify_token_with_auth_service),
+):
+    """
+    Statistik laporan milik user yang sedang login.
+
+    **Membutuhkan autentikasi.**
+
+    Mengembalikan:
+    - `total_laporan`: jumlah semua laporan yang dibuat user
+    - `per_status`: rincian per status (menunggu, diproses, selesai)
+    - `per_kategori`: rincian per kategori (Kehilangan, Fasilitas, Perundungan)
+    - `per_prioritas`: rincian per prioritas (tinggi, sedang, rendah)
+    - `laporan_terbaru`: timestamp laporan terakhir dibuat
+    - `rata_rata_rating`: rata-rata rating feedback dari laporan yang selesai
+    """
+    return crud.get_report_stats(db=db, user_id=user["user_id"])
 
 
 @app.get("/reports/{report_id}", response_model=ReportResponse, tags=["Laporan"])
