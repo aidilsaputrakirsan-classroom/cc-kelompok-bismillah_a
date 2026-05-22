@@ -25,6 +25,7 @@ env:
   DEPLOY_ENDPOINT: https://deploycc.akhzafachrozy.my.id
   REPO_NAME: ${{ github.event.repository.name }}
   DOCS_URL: https://github.com/akhzaozy/deploycloudcomputing
+  HEALTH_PATH: /health
 
 jobs:
   # ─────────────────────────────────────────────────────────────────
@@ -541,6 +542,39 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       # ──────────────────────────────────────────────────────────────
+      # HEALTH CHECK — verifikasi endpoint /health setelah deploy
+      # ──────────────────────────────────────────────────────────────
+      - name: 🏥 Health check
+        id: healthcheck
+        run: |
+          set -e
+
+          domain="${{ steps.deploy.outputs.domain }}"
+
+          # Jika domain dari DeployCC tersedia, gunakan itu; fallback ke repo name
+          if [ -z "$domain" ]; then
+            repo="${{ steps.repo.outputs.name }}"
+            domain="https://${repo}.akhzafachrozy.my.id"
+            echo "⚠ Domain tidak ditemukan dari output deploy, fallback ke: $domain"
+          fi
+
+          HEALTH_URL="${domain}${{ env.HEALTH_PATH }}"
+          echo "🔍 Health check URL: $HEALTH_URL"
+
+          echo "Waiting for deployment to be ready..."
+          sleep 30
+
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_URL")
+
+          if [ "$HTTP_STATUS" == "200" ]; then
+            echo "✅ Health check passed! (HTTP $HTTP_STATUS)"
+          else
+            echo "❌ Health check FAILED! (HTTP $HTTP_STATUS)"
+            echo "Check Railway dashboard for logs."
+            exit 1
+          fi
+
+      # ──────────────────────────────────────────────────────────────
       # SUMMARY — tampilan akhir ke GitHub Actions UI
       # ──────────────────────────────────────────────────────────────
       - name: Write deploy summary
@@ -569,6 +603,11 @@ jobs:
             echo "| 🔌 Uvicorn port | ${{ steps.deploy.outputs.port }} |"
             echo "| 🏗 Infra rebuilt | ${{ steps.deploy.outputs.infra_rebuilt }} |"
             echo "| 📦 ZIP size | ${{ steps.pkg.outputs.size }} |"
+            if [ "${{ steps.healthcheck.outcome }}" = "success" ]; then
+              echo "| 🏥 Health check | ✅ Passed (HTTP 200) |"
+            else
+              echo "| 🏥 Health check | ❌ Failed |"
+            fi
             echo ""
             echo "## 🔐 SSH Access"
             echo ""
