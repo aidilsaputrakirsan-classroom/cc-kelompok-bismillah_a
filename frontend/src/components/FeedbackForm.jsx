@@ -12,16 +12,10 @@ const sectionTitle = {
   color: "#10b981",
 };
 
-/**
- * @param {object} form - State form { rating, komentar }
- * @param {function} onFormChange - Handler perubahan form
- * @param {function} onSubmit - Handler submit feedback
- * @param {boolean} done - Apakah feedback sudah dikirim
- */
 export default function FeedbackForm({ form, onFormChange, onSubmit, done, loading }) {
   if (done) {
     return (
-      <div style={{ background: "#d1fae5", color: "#065f46", padding: "1rem 1.25rem", borderRadius: "var(--radius)", textAlign: "center" }}>
+      <div className="feedback-success">
         🎉 Terima kasih atas feedback Anda!
       </div>
     );

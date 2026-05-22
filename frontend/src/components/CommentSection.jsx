@@ -11,29 +11,15 @@ const styles = {
     marginBottom: "1.25rem",
     paddingBottom: "0.75rem",
     borderBottom: "1px solid var(--border)",
+    color: "var(--text-primary)",
   },
   comment: {
     maxWidth: "75%",
     display: "flex",
     flexDirection: "column",
   },
-  commentBubble: {
-    padding: "0.625rem 0.875rem",
-    borderRadius: 12,
-    fontSize: "0.9rem",
-    lineHeight: 1.5,
-  },
 };
 
-/**
- * @param {Array} comments - Daftar komentar
- * @param {number} currentUserId - ID user yang sedang login
- * @param {string} newComment - Value input komentar baru
- * @param {function} onNewCommentChange - Handler perubahan input
- * @param {boolean} loading - Status loading submit komentar
- * @param {function} onSubmit - Handler submit komentar
- * @param {function} formatDate - Fungsi format tanggal
- */
 export default function CommentSection({ comments, currentUserId, newComment, onNewCommentChange, loading, onSubmit, formatDate }) {
   return (
     <div className="card-flat" style={{ marginBottom: "1.5rem" }}>
@@ -52,12 +38,8 @@ export default function CommentSection({ comments, currentUserId, newComment, on
               <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.25rem" }}>
                 {isMe ? "Anda" : (c.user?.nama || "Admin")} · {formatDate(c.created_at)}
               </div>
-              <div style={{
-                ...styles.commentBubble,
-                background: isMe ? "var(--primary)" : "white",
-                color: isMe ? "white" : "var(--text-primary)",
-                border: isMe ? "none" : "1px solid var(--border)",
-              }}>
+              {/* Use CSS class for bubble so dark mode can override */}
+              <div className={isMe ? "comment-bubble-self" : "comment-bubble-other"}>
                 {c.pesan}
               </div>
             </div>
