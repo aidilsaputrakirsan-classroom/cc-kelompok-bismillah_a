@@ -1,56 +1,94 @@
-.PHONY: up down build logs ps clean restart lint test pr-check logs-backend shell-backend shell-db
+.PHONY: up down build logs ps clean restart lint test pr-check logs-auth logs-report logs-gateway shell-auth shell-report shell-auth-db shell-report-db
 
-# Start semua services
+COMPOSE = docker compose
+
+# ─────────────────────────────────────────────
+# Core targets
+# ─────────────────────────────────────────────
+
+# Start semua services (tanpa rebuild)
 up:
-	docker compose up -d
+	$(COMPOSE) up -d
 
-# Start dengan rebuild
+# Start dengan rebuild image
 build:
-	docker compose up --build -d
+	$(COMPOSE) up --build -d
 
-# Stop & remove containers
+# Stop & remove containers (data tetap ada)
 down:
-	docker compose down
+	$(COMPOSE) down
 
-# Stop, remove, DAN hapus volumes (⚠️ data hilang!)
+# Restart semua services
+restart:
+	$(COMPOSE) restart
+
+# Lihat logs semua services (follow mode)
+logs:
+	$(COMPOSE) logs -f
+
+# ─────────────────────────────────────────────
+# Per-service logs
+# ─────────────────────────────────────────────
+
+# Logs auth-service saja
+logs-auth:
+	$(COMPOSE) logs -f auth-service
+
+# Logs report-service saja
+logs-report:
+	$(COMPOSE) logs -f report-service
+
+# Logs gateway saja
+logs-gateway:
+	$(COMPOSE) logs -f gateway
+
+# ─────────────────────────────────────────────
+# Shell access
+# ─────────────────────────────────────────────
+
+# Masuk ke shell auth-service
+shell-auth:
+	$(COMPOSE) exec auth-service bash
+
+# Masuk ke shell report-service
+shell-report:
+	$(COMPOSE) exec report-service bash
+
+# Masuk ke database auth-db
+shell-auth-db:
+	$(COMPOSE) exec auth-db psql -U postgres -d auth_db
+
+# Masuk ke database report-db
+shell-report-db:
+	$(COMPOSE) exec report-db psql -U postgres -d report_db
+
+# ─────────────────────────────────────────────
+# Status & Maintenance
+# ─────────────────────────────────────────────
+
+# Lihat status semua containers
+ps:
+	$(COMPOSE) ps
+
+# Stop, hapus containers DAN volumes (⚠️ data hilang!)
 clean:
-	docker compose down -v
+	$(COMPOSE) down -v
 	docker system prune -f
 
-# Restart semua
-restart:
-	docker compose restart
-
-# Lihat logs (semua services)
-logs:
-	docker compose logs -f
-
-# Lihat logs backend saja
-logs-backend:
-	docker compose logs -f backend
-
-# Lihat status
-ps:
-	docker compose ps
-
-# Masuk ke backend shell
-shell-backend:
-	docker compose exec backend bash
-
-# Masuk ke database
-shell-db:
-	docker compose exec db psql -U postgres -d cloudapp
+# ─────────────────────────────────────────────
+# Quality checks
+# ─────────────────────────────────────────────
 
 # Jalankan linter pada service frontend
 lint:
 	@echo "Menjalankan linter..."
-	docker compose exec frontend npm run lint
+	$(COMPOSE) exec frontend npm run lint
 
-# Jalankan testing
+# Jalankan testing backend
 test:
 	@echo "Menjalankan test suite..."
-	docker compose exec backend pytest
+	$(COMPOSE) exec auth-service pytest
 
-# Validasi Pull Request: Build ulang image, jalankan linter, lalu jalankan test
+# Validasi PR: build, lint, test
 pr-check: build lint test
 	@echo "✅ PR Check selesai: Build, Lint, dan Test berhasil tanpa eror."
