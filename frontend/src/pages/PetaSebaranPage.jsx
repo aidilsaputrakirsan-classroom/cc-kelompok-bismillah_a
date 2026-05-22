@@ -162,7 +162,7 @@ export default function PetaSebaranPage() {
         </div>
 
         {/* Filter Bar */}
-        <div className="card-flat" style={{
+        <div className="card-flat peta-filter-bar" style={{
           display: "flex",
           alignItems: "center",
           gap: "1rem",
@@ -218,7 +218,7 @@ export default function PetaSebaranPage() {
           </div>
 
           {/* Separator */}
-          <div style={{ width: 1, height: 32, background: "var(--border)", flexShrink: 0 }} />
+          <div className="peta-filter-separator" style={{ width: 1, height: 32, background: "var(--border)", flexShrink: 0 }} />
 
           {/* Status filter */}
           <select
@@ -233,7 +233,7 @@ export default function PetaSebaranPage() {
           </select>
 
           {/* Counter */}
-          <div style={{ marginLeft: "auto", fontSize: "0.8125rem", color: "var(--text-muted)", fontWeight: 500 }}>
+          <div className="peta-filter-counter" style={{ marginLeft: "auto", fontSize: "0.8125rem", color: "var(--text-muted)", fontWeight: 500 }}>
             📍 <strong style={{ color: "var(--text-primary)" }}>{filteredReports.length}</strong> laporan ditampilkan
           </div>
         </div>
@@ -274,7 +274,7 @@ export default function PetaSebaranPage() {
             </div>
           )}
 
-          <div className="map-container" style={{ height: "calc(100vh - 260px)", minHeight: 450 }}>
+          <div className="map-container peta-map-container" style={{ height: "calc(100vh - 260px)", minHeight: 450 }}>
             <MapContainer
               center={ITK_CENTER}
               zoom={ITK_ZOOM}

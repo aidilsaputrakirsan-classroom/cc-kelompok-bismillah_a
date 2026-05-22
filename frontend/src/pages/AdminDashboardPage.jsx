@@ -151,12 +151,12 @@ export default function AdminDashboardPage() {
       <div className="container" style={{ padding: "2rem 1.5rem" }}>
 
         {/* Header */}
-        <div className="flex-between" style={{ marginBottom: "2rem", flexWrap: "wrap", gap: "1rem" }}>
+        <div className="flex-between page-header" style={{ marginBottom: "2rem", flexWrap: "wrap", gap: "1rem" }}>
           <div>
             <h1 style={{ fontSize: "1.75rem", fontWeight: 800 }}>Dashboard Admin</h1>
             <p style={{ color: "var(--text-muted)", marginTop: "0.25rem" }}>LaporIn ITK — Kelola semua laporan masuk</p>
           </div>
-          <div style={{ display: "flex", gap: "0.5rem" }}>
+          <div className="admin-tab-btns">
             <button
               className={`btn ${activeTab === "dashboard" ? "btn-primary" : "btn-secondary"}`}
               onClick={() => setActiveTab("dashboard")}

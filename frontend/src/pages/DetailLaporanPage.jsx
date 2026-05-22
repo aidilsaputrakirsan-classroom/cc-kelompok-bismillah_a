@@ -113,7 +113,7 @@ export default function DetailLaporanPage() {
 
         {/* Header Card */}
         <div className="card" style={{ marginBottom: "1.5rem" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem", marginBottom: "1rem" }}>
+          <div className="detail-header-top" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem", marginBottom: "1rem" }}>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
               <span className={`badge badge-${report.category?.nama_kategori?.toLowerCase()}`}>
                 {report.category?.nama_kategori}
@@ -141,7 +141,7 @@ export default function DetailLaporanPage() {
             {report.deskripsi}
           </p>
 
-          <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap", fontSize: "0.875rem", color: "var(--text-muted)" }}>
+          <div className="detail-meta-row" style={{ display: "flex", gap: "2rem", flexWrap: "wrap", fontSize: "0.875rem", color: "var(--text-muted)" }}>
             {report.lokasi && <span>📍 {report.lokasi}</span>}
             {report.tanggal_kejadian && <span>📅 {report.tanggal_kejadian}</span>}
           </div>
@@ -167,7 +167,7 @@ export default function DetailLaporanPage() {
                 </span>
               )}
             </h3>
-            <div className="map-container" style={{ height: 300 }}>
+            <div className="map-container map-container-detail" style={{ height: 300 }}>
               <MapContainer
                 center={[report.latitude, report.longitude]}
                 zoom={16}

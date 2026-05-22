@@ -92,13 +92,13 @@ export default function BuatLaporanPage() {
 
         {/* Alert Perundungan */}
         {isPerundungan && (
-          <div style={styles.alertInfo}>
+          <div className="laporan-alert-info">
             🔒 <strong>Laporan Perundungan</strong> — Identitas Anda akan <strong>dirahasiakan sepenuhnya</strong> dan lokasi hanya akan ditampilkan sebagai area umum.
           </div>
         )}
 
         {error && (
-          <div style={styles.alertError}>⚠️ {error}</div>
+          <div className="laporan-alert-error">⚠️ {error}</div>
         )}
 
         <form onSubmit={handleSubmit}>
@@ -109,7 +109,7 @@ export default function BuatLaporanPage() {
               <label className="form-label">
                 Kategori <span className="required">*</span>
               </label>
-              <div style={styles.categoryGrid}>
+              <div className="category-grid-responsive">
                 {categories.map((cat) => {
                   const icons = { Kehilangan: "🔍", Fasilitas: "🏗️", Perundungan: "🛡️" };
                   const colors = { Kehilangan: "#8b5cf6", Fasilitas: "#3b82f6", Perundungan: "#ef4444" };
@@ -119,10 +119,11 @@ export default function BuatLaporanPage() {
                       key={cat.id}
                       type="button"
                       onClick={() => setForm({ ...form, kategori_id: String(cat.id) })}
+                      className={selected ? "" : "category-btn-unselected"}
                       style={{
                         ...styles.categoryBtn,
                         borderColor: selected ? colors[cat.nama_kategori] || "var(--primary)" : "var(--border)",
-                        background: selected ? `${colors[cat.nama_kategori]}18` : "white",
+                        background: selected ? `${colors[cat.nama_kategori]}18` : undefined,
                         color: selected ? colors[cat.nama_kategori] || "var(--primary)" : "var(--text-primary)",
                       }}
                     >
@@ -161,7 +162,7 @@ export default function BuatLaporanPage() {
               />
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+            <div className="laporan-grid-2">
               <div className="form-group">
                 <label className="form-label">Nama Lokasi</label>
                 <input
@@ -195,7 +196,7 @@ export default function BuatLaporanPage() {
                 </strong>
               )}
             </p>
-            <div className="map-container" style={{ height: 350 }}>
+            <div className="map-container map-container-buat" style={{ height: 350 }}>
               <MapContainer
                 center={ITK_CENTER}
                 zoom={16}
@@ -242,7 +243,7 @@ export default function BuatLaporanPage() {
           )}
 
           {/* Actions */}
-          <div style={{ display: "flex", gap: "1rem", justifyContent: "flex-end" }}>
+          <div className="laporan-actions" style={{ display: "flex", gap: "1rem", justifyContent: "flex-end" }}>
             <button
               type="button"
               className="btn btn-secondary"
@@ -292,22 +293,5 @@ const styles = {
     fontSize: "0.875rem",
     fontFamily: "inherit",
     transition: "all 0.2s ease",
-  },
-  alertInfo: {
-    background: "#eff6ff",
-    border: "1px solid #bfdbfe",
-    color: "#1e40af",
-    padding: "1rem 1.25rem",
-    borderRadius: "var(--radius)",
-    marginBottom: "1.5rem",
-    fontSize: "0.9rem",
-  },
-  alertError: {
-    background: "#fee2e2",
-    color: "#991b1b",
-    padding: "0.875rem 1rem",
-    borderRadius: "var(--radius-sm)",
-    marginBottom: "1.5rem",
-    fontSize: "0.875rem",
   },
 };
