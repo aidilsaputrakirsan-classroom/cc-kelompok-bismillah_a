@@ -1,10 +1,14 @@
 /**
  * LaporIn ITK — API Service Layer
- * Semua komunikasi dengan backend FastAPI
+ * Semua komunikasi dengan backend FastAPI via API Gateway
+ *
+ * Arsitektur Microservices:
+ *   Frontend → Gateway (Nginx :80) → auth-service (:8001) / report-service (:8002)
  */
 
-// Production: VITE_API_URL di-inject oleh CD pipeline → https://domain.my.id/api
-// Development: kosong = same origin (Vite proxy forward ke localhost:8000)
+// Gateway URL — satu pintu masuk untuk semua microservice
+// Development : http://localhost  (Nginx gateway port 80)
+// Production  : https://laporin-gateway.up.railway.app
 const BASE_URL = import.meta.env.VITE_API_URL || "";
 
 // ============================================================
@@ -44,7 +48,37 @@ async function request(method, path, body = null, requireAuth = true) {
   const options = { method, headers };
   if (body) options.body = JSON.stringify(body);
 
-  const res = await fetch(`${BASE_URL}${path}`, options);
+  // --- Network error: gateway tidak bisa dihubungi sama sekali ---
+  let res;
+  try {
+    res = await fetch(`${BASE_URL}${path}`, options);
+  } catch {
+    // TypeError: Failed to fetch — terjadi saat Docker/gateway belum jalan
+    throw new Error(
+      "Layanan sementara tidak tersedia. " +
+      "Tidak dapat terhubung ke server. Silakan coba beberapa saat lagi."
+    );
+  }
+
+  // --- Gateway error: microservice di belakang Nginx sedang bermasalah ---
+  if (res.status === 502) {
+    throw new Error(
+      "Layanan sementara tidak tersedia (502 Bad Gateway). " +
+      "Salah satu layanan backend sedang restart, silakan coba lagi nanti."
+    );
+  }
+  if (res.status === 503) {
+    throw new Error(
+      "Layanan sementara tidak tersedia (503 Service Unavailable). " +
+      "Server sedang dalam pemeliharaan. Silakan coba beberapa saat lagi."
+    );
+  }
+  if (res.status === 504) {
+    throw new Error(
+      "Layanan sementara tidak tersedia (504 Gateway Timeout). " +
+      "Server terlalu lama merespons. Silakan coba beberapa saat lagi."
+    );
+  }
 
   if (res.status === 401) {
     if (path !== "/auth/login") {
@@ -72,6 +106,7 @@ async function request(method, path, body = null, requireAuth = true) {
   if (res.status === 204) return null;
   return res.json();
 }
+
 
 // ============================================================
 // SYSTEM
