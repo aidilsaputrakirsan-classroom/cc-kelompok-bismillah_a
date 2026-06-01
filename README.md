@@ -35,8 +35,8 @@ LaporIn ITK mencakup tiga kategori pelaporan utama:
 | 3      | React Frontend         | ✅     |
 | 4      | Full-Stack Integration | ✅     |
 | 5-7    | Docker & Compose       | ✅     |
-| 8      | UTS Demo               | ⬜     |
-| 9-11   | CI/CD Pipeline         | ⬜     |
+| 8      | UTS Demo               | ✅     |
+| 9-11   | CI/CD Pipeline         | ✅     |
 | 12-14  | Microservices          | ⬜     |
 | 15-16  | Final & UAS            | ⬜     |
 
@@ -665,6 +665,58 @@ Lihat laporan lengkap di: [`docs/ui-test-result.md`](docs/ui-test-result.md)
 Lihat: [`docs/docker-cheatsheet.md`](docs/docker-cheatsheet.md)
 
 ---
+
+## 👨‍💻 Developer Workflow
+
+Sejak Modul 9, tim menerapkan **GitHub Flow** sebagai standar pengembangan proyek. Untuk menjaga kualitas kode dan meminimalkan potensi masalah saat integrasi, setiap anggota tim diwajibkan melakukan pengecekan secara lokal menggunakan `Makefile` sebelum melakukan push ke branch masing-masing.
+
+### Perintah Makefile
+
+Jalankan perintah berikut melalui terminal:
+
+- `make lint` : Memeriksa kualitas kode backend menggunakan linter (`flake8`) agar sesuai dengan standar penulisan yang telah ditetapkan.
+- `make test` : Menjalankan pengujian unit pada aplikasi.
+- `make pr-check` : **Wajib dijalankan sebelum push.** Perintah ini akan melakukan build ulang Docker container serta menjalankan proses linting dan testing secara otomatis.
+
+### Alur Kontribusi
+
+1. Sinkronkan repository lokal dengan branch `main` terbaru:
+   ```bash
+   git checkout main
+   git pull origin main
+   ```
+
+2. Buat branch baru sesuai kebutuhan fitur atau perbaikan:
+   ```bash
+   git checkout -b tipe/nama-fitur
+   ```
+
+3. Lakukan pengembangan atau perubahan kode pada branch tersebut.
+
+4. Jalankan verifikasi kode:
+   ```bash
+   make pr-check
+   ```
+
+5. Setelah seluruh pengecekan berhasil, lakukan commit dan push ke repository.
+
+6. Buat Pull Request melalui GitHub dan ajukan perubahan untuk direview oleh anggota tim lainnya.
+
+## 🌐 Live Demo
+
+| Service | URL |
+|---------|-----|
+| Frontend | [https://cc-kelompok-strangerthings.akhzafachrozy.my.id](https://cc-kelompok-strangerthings.akhzafachrozy.my.id) |
+| Backend API | |
+| API Docs (Swagger) | |
+
+## 🔄 CI/CD
+
+Pipeline otomatis berjalan saat push ke main:
+1. ✅ Test backend (pytest)
+2. ✅ Test frontend (Vitest)
+3. ✅ Build Docker images
+4. ✅ Deploy ke Railway
 
 
 
