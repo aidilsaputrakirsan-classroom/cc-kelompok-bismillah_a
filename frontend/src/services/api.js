@@ -4,12 +4,29 @@
  *
  * Arsitektur Microservices:
  *   Frontend → Gateway (Nginx :80) → auth-service (:8001) / report-service (:8002)
+ *
+ * Error Handling:
+ *   - 502/503/504 / network error → dispatch event ke ServiceStatusContext
+ *   - Auth error (503 on /auth/*) → dispatch auth-error event untuk banner global
  */
 
 // Gateway URL — satu pintu masuk untuk semua microservice
 // Development : http://localhost  (Nginx gateway port 80)
 // Production  : https://laporin-gateway.up.railway.app
 const BASE_URL = import.meta.env.VITE_API_URL || "";
+
+// ============================================================
+// EVENT HELPERS — notifikasi ke ServiceStatusContext
+// ============================================================
+
+function _emitServiceError(path) {
+  const type = path.startsWith("/auth") ? "auth" : "service";
+  window.dispatchEvent(new CustomEvent("laporin:service-error", { detail: { type } }));
+}
+
+function _emitServiceRecovered() {
+  window.dispatchEvent(new CustomEvent("laporin:service-recovered"));
+}
 
 // ============================================================
 // TOKEN MANAGEMENT
@@ -54,6 +71,7 @@ async function request(method, path, body = null, requireAuth = true) {
     res = await fetch(`${BASE_URL}${path}`, options);
   } catch {
     // TypeError: Failed to fetch — terjadi saat Docker/gateway belum jalan
+    _emitServiceError(path);
     throw new Error(
       "Layanan sementara tidak tersedia. " +
       "Tidak dapat terhubung ke server. Silakan coba beberapa saat lagi."
@@ -62,18 +80,21 @@ async function request(method, path, body = null, requireAuth = true) {
 
   // --- Gateway error: microservice di belakang Nginx sedang bermasalah ---
   if (res.status === 502) {
+    _emitServiceError(path);
     throw new Error(
       "Layanan sementara tidak tersedia (502 Bad Gateway). " +
       "Salah satu layanan backend sedang restart, silakan coba lagi nanti."
     );
   }
   if (res.status === 503) {
+    _emitServiceError(path);
     throw new Error(
       "Layanan sementara tidak tersedia (503 Service Unavailable). " +
       "Server sedang dalam pemeliharaan. Silakan coba beberapa saat lagi."
     );
   }
   if (res.status === 504) {
+    _emitServiceError(path);
     throw new Error(
       "Layanan sementara tidak tersedia (504 Gateway Timeout). " +
       "Server terlalu lama merespons. Silakan coba beberapa saat lagi."
@@ -104,12 +125,13 @@ async function request(method, path, body = null, requireAuth = true) {
   }
 
   if (res.status === 204) return null;
+  _emitServiceRecovered();
   return res.json();
 }
 
 
 // ============================================================
-// SYSTEM
+// SYSTEM — Health Checks
 // ============================================================
 
 export const checkHealth = async () => {
@@ -118,6 +140,22 @@ export const checkHealth = async () => {
     return data?.status === "healthy";
   } catch {
     return false;
+  }
+};
+
+/**
+ * Cek apakah auth service sedang aktif.
+ * @returns {{ ok: boolean, status: string|null }}
+ */
+export const checkAuthHealth = async () => {
+  try {
+    const res = await fetch(`${BASE_URL}/auth/health`);
+    if (!res.ok) return { ok: false, status: res.status };
+    const data = await res.json();
+    const ok = data?.status === "healthy" || data?.status === "ok";
+    return { ok, status: data?.status ?? null };
+  } catch {
+    return { ok: false, status: null };
   }
 };
 

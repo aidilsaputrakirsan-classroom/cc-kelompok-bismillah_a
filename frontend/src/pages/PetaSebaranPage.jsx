@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import { fetchMapReports, fetchCategories } from "../services/api";
+import ServiceUnavailableBanner, { isServiceError } from "../components/ServiceUnavailableBanner";
 
 // ============================================================
 // ITK CAMPUS CONFIG
@@ -94,23 +95,24 @@ export default function PetaSebaranPage() {
   }, []);
 
   // Load map reports
-  useEffect(() => {
-    const loadReports = async () => {
-      setLoading(true);
-      setError("");
-      try {
-        const data = await fetchMapReports({
-          status: statusFilter || undefined,
-        });
-        setReports(data);
-      } catch (err) {
-        setError(err.message || "Gagal memuat data peta");
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadReports();
+  const loadReports = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const data = await fetchMapReports({
+        status: statusFilter || undefined,
+      });
+      setReports(data);
+    } catch (err) {
+      setError(err.message || "Gagal memuat data peta");
+    } finally {
+      setLoading(false);
+    }
   }, [statusFilter]);
+
+  useEffect(() => {
+    loadReports();
+  }, [loadReports]);
 
   // Filter reports by active categories (client-side)
   const filteredReports = useMemo(() => {
@@ -239,7 +241,10 @@ export default function PetaSebaranPage() {
         </div>
 
         {/* Error */}
-        {error && (
+        {error && isServiceError(error) && (
+          <ServiceUnavailableBanner onRetry={loadReports} message={error} compact />
+        )}
+        {error && !isServiceError(error) && (
           <div style={{
             background: "#fee2e2",
             color: "#991b1b",
