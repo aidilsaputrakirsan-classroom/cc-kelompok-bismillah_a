@@ -12,7 +12,7 @@ Microservice ini bertanggung jawab untuk:
 """
 import os
 import logging
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException, Query, Header
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import text
