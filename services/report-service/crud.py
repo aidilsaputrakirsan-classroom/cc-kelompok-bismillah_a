@@ -310,6 +310,120 @@ def get_report_stats(db: Session, user_id: int) -> dict:
     }
 
 
+def get_global_stats(db: Session) -> dict:
+    """
+    Ambil statistik agregat SEMUA laporan tanpa filter user.
+
+    Digunakan oleh GET /reports/stats dalam degraded mode:
+    saat Auth Service down (circuit breaker OPEN), endpoint tetap bisa
+    memberikan response berupa statistik global (bukan per-user).
+
+    Endpoint: GET /reports/stats (degraded mode)
+    Branch: feature/graceful-degradation (Lead Backend — Modul 13)
+    """
+    total = db.query(Report).count()
+
+    per_status = {
+        "menunggu": db.query(Report).filter(Report.status == "menunggu").count(),
+        "diproses":  db.query(Report).filter(Report.status == "diproses").count(),
+        "selesai":   db.query(Report).filter(Report.status == "selesai").count(),
+    }
+
+    per_kategori: dict = {}
+    rows = (
+        db.query(Category.nama_kategori, sa_func.count(Report.id))
+        .join(Report, Report.kategori_id == Category.id)
+        .group_by(Category.nama_kategori)
+        .all()
+    )
+    for nama, count in rows:
+        per_kategori[nama] = count
+
+    per_prioritas = {
+        "tinggi": db.query(Report).filter(Report.prioritas == "tinggi").count(),
+        "sedang": db.query(Report).filter(Report.prioritas == "sedang").count(),
+        "rendah": db.query(Report).filter(Report.prioritas == "rendah").count(),
+    }
+
+    newest = (
+        db.query(Report.created_at)
+        .order_by(Report.created_at.desc())
+        .first()
+    )
+    laporan_terbaru = newest[0] if newest else None
+
+    avg_result = db.query(sa_func.avg(Feedback.rating)).scalar()
+    rata_rata_rating = round(float(avg_result), 2) if avg_result is not None else None
+
+    return {
+        "total_laporan": total,
+        "per_status": per_status,
+        "per_kategori": per_kategori,
+        "per_prioritas": per_prioritas,
+        "laporan_terbaru": laporan_terbaru,
+        "rata_rata_rating": rata_rata_rating,
+    }
+
+
+def get_public_reports(
+    db: Session,
+    skip: int = 0,
+    limit: int = 20,
+    status: str | None = None,
+    kategori_id: int | None = None,
+) -> dict:
+    """
+    Ambil daftar laporan publik TANPA autentikasi.
+
+    Aturan privasi:
+    - Laporan yang anonim=True atau is_sensitive=True -> user_id disembunyikan (None)
+    - Hanya field publik yang dikembalikan (tanpa data pribadi)
+    - Khusus laporan Perundungan (is_sensitive) -> judul dan lokasi disembunyikan
+
+    Endpoint: GET /reports/public (no auth required)
+    Branch: feature/graceful-degradation (Lead Backend — Modul 13)
+    """
+    query = db.query(Report).options(
+        joinedload(Report.category),
+    )
+
+    if status:
+        query = query.filter(Report.status == status)
+    if kategori_id:
+        query = query.filter(Report.kategori_id == kategori_id)
+
+    total = query.count()
+    reports = query.order_by(Report.created_at.desc()).offset(skip).limit(limit).all()
+
+    public_reports = []
+    for r in reports:
+        # Sembunyikan data sensitif untuk laporan Perundungan
+        if r.is_sensitive:
+            public_reports.append({
+                "id":            r.id,
+                "judul":         "[Laporan Sensitif]",
+                "lokasi":        "[Disembunyikan]",
+                "status":        r.status,
+                "prioritas":     r.prioritas,
+                "kategori_nama": r.category.nama_kategori if r.category else "Lainnya",
+                "user_id":       None,
+                "anonim":        True,
+                "created_at":    r.created_at,
+            })
+        else:
+            public_reports.append({
+                "id":            r.id,
+                "judul":         r.judul,
+                "lokasi":        r.lokasi,
+                "status":        r.status,
+                "prioritas":     r.prioritas,
+                "kategori_nama": r.category.nama_kategori if r.category else "Lainnya",
+                "user_id":       None if r.anonim else r.user_id,
+                "anonim":        r.anonim,
+                "created_at":    r.created_at,
+            })
+
+    return {"total": total, "reports": public_reports}
 
 
 def update_report(
