@@ -11,9 +11,11 @@ Microservice ini bertanggung jawab untuk:
 - Peta sebaran (map)
 """
 import os
+import logging
 from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from database import engine, get_db, Base
 from models import Unit
@@ -38,8 +40,15 @@ from schemas import (
     # Stats (Lead Backend — Modul 12)
     ReportStats,
 )
-from auth_client import verify_token_with_auth_service, require_admin_from_auth_service
+from auth_client import verify_token_with_auth_service, require_admin_from_auth_service, auth_circuit
 import crud
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -77,12 +86,46 @@ def startup_event():
 # ==================== HEALTH CHECK ====================
 
 @app.get("/health")
-def health_check():
-    """Health check endpoint untuk Report Service."""
+async def health_check():
+    """
+    Health check aggregated — menampilkan status report-service beserta dependencies:
+    - Auth Service (circuit breaker state)
+    - Database (koneksi ke report-db)
+    """
+    # --- Cek circuit breaker Auth Service ---
+    cb_status = auth_circuit.get_status()
+    auth_available = cb_status["state"] == "CLOSED"
+
+    # --- Cek koneksi database ---
+    db_status = "connected"
+    try:
+        db = next(get_db())
+        db.execute(text("SELECT 1"))
+        db.close()
+    except Exception as e:
+        logger.warning(f"[health_check] Database connection error: {e}")
+        db_status = "disconnected"
+
+    # --- Tentukan overall status ---
+    overall = "healthy"
+    if not auth_available:
+        overall = "degraded"      # Auth down tapi service masih bisa jalan terbatas
+    if db_status != "connected":
+        overall = "unhealthy"     # Database down = service tidak bisa berfungsi
+
     return {
-        "status": "healthy",
+        "status": overall,
         "service": "report-service",
-        "version": "2.0.0",
+        "version": "2.1.0",
+        "dependencies": {
+            "auth-service": {
+                "status": "available" if auth_available else "unavailable",
+                "circuit_breaker": cb_status,
+            },
+            "database": {
+                "status": db_status,
+            },
+        },
     }
 
 
