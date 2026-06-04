@@ -56,7 +56,7 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(
     title="Report Service — LaporIn ITK",
     description="Report management microservice — CRUD laporan, komentar, notifikasi, feedback",
-    version="2.0.0",
+    version="2.2.0",
 )
 
 # CORS
@@ -201,27 +201,85 @@ async def daftar_laporan(
     )
 
 
-# ==================== REPORT STATS (Lead Backend — Modul 12) ====================
+# ==================== REPORT STATS (Lead Backend — Modul 12 + 13 Graceful Degradation) ====================
 
 @app.get("/reports/stats", response_model=ReportStats, tags=["Laporan"])
-async def statistik_laporan_user(
+async def statistik_laporan(
+    authorization: str = Header(None),
     db: Session = Depends(get_db),
-    user: dict = Depends(verify_token_with_auth_service),
 ):
     """
-    Statistik laporan milik user yang sedang login.
+    Statistik laporan.
 
-    **Membutuhkan autentikasi.**
+    **Graceful Degradation (Modul 13):**
+    - Jika Auth Service UP (circuit breaker CLOSED): return statistik laporan milik user yang login
+    - Jika Auth Service DOWN (circuit breaker OPEN): return statistik agregat semua laporan (tanpa auth)
 
-    Mengembalikan:
-    - `total_laporan`: jumlah semua laporan yang dibuat user
-    - `per_status`: rincian per status (menunggu, diproses, selesai)
-    - `per_kategori`: rincian per kategori (Kehilangan, Fasilitas, Perundungan)
-    - `per_prioritas`: rincian per prioritas (tinggi, sedang, rendah)
-    - `laporan_terbaru`: timestamp laporan terakhir dibuat
-    - `rata_rata_rating`: rata-rata rating feedback dari laporan yang selesai
+    Mode degraded ditandai dengan field `degraded: true` di response.
     """
-    return crud.get_report_stats(db=db, user_id=user["user_id"])
+    cb_state = auth_circuit.get_status()["state"]
+
+    # --- DEGRADED MODE: Auth Service down atau circuit breaker OPEN ---
+    if cb_state == "OPEN" or authorization is None:
+        logger.warning(
+            "[/reports/stats] Auth Service tidak tersedia (CB OPEN) "
+            "atau tidak ada token — returning global stats (degraded mode)"
+        )
+        stats = crud.get_global_stats(db=db)
+        stats["degraded"] = True
+        stats["degraded_reason"] = "Auth Service tidak tersedia. Menampilkan statistik global."
+        return stats
+
+    # --- FULL MODE: Auth Service UP, verifikasi token ---
+    try:
+        user = await verify_token_with_auth_service(authorization)
+        stats = crud.get_report_stats(db=db, user_id=user["user_id"])
+        stats["degraded"] = False
+        return stats
+    except HTTPException as exc:
+        # Jika 503 (auth down tapi CB belum OPEN penuh), fallback ke global stats
+        if exc.status_code == 503:
+            logger.warning(
+                "[/reports/stats] Auth Service 503 saat verifikasi "
+                "— fallback ke global stats (degraded mode)"
+            )
+            stats = crud.get_global_stats(db=db)
+            stats["degraded"] = True
+            stats["degraded_reason"] = "Auth Service sedang tidak tersedia. Menampilkan statistik global."
+            return stats
+        # Error lain (401, 403) diteruskan apa adanya
+        raise
+
+
+# ==================== PUBLIC ENDPOINT (Lead Backend — Modul 13 Tugas C) ====================
+
+@app.get("/reports/public", tags=["Laporan"])
+def daftar_laporan_publik(
+    skip: int = Query(0, ge=0, description="Offset pagination"),
+    limit: int = Query(20, ge=1, le=100, description="Jumlah per halaman"),
+    status: str | None = Query(None, description="Filter: menunggu / diproses / selesai"),
+    kategori_id: int | None = Query(None, description="Filter berdasarkan ID kategori"),
+    db: Session = Depends(get_db),
+):
+    """
+    Ambil daftar laporan publik. **Tidak membutuhkan autentikasi.**
+
+    Endpoint ini selalu bisa diakses bahkan saat Auth Service down (graceful degradation).
+
+    Aturan privasi yang diterapkan:
+    - Laporan **anonim** → `user_id` disembunyikan (ditampilkan sebagai `null`)
+    - Laporan **sensitif** (Perundungan) → judul dan lokasi diganti `[Disembunyikan]`
+    - Data pribadi pelapor tidak pernah ditampilkan
+
+    Berguna untuk: tampilan publik laporan di kampus, dashboard terbuka.
+    """
+    return crud.get_public_reports(
+        db=db,
+        skip=skip,
+        limit=limit,
+        status=status,
+        kategori_id=kategori_id,
+    )
 
 
 @app.get("/reports/{report_id}", response_model=ReportResponse, tags=["Laporan"])

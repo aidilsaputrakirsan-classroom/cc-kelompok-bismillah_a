@@ -262,15 +262,22 @@ class DashboardStats(BaseModel):
 
 class ReportStats(BaseModel):
     """
-    Schema untuk statistik laporan milik user yang sedang login.
-    Digunakan oleh endpoint GET /reports/stats.
+    Schema untuk statistik laporan.
+
+    Mendukung dua mode (Modul 13 — Graceful Degradation):
+    - Full mode (Auth UP): statistik laporan milik user yang login
+    - Degraded mode (Auth DOWN): statistik agregat semua laporan, field degraded=True
     """
     total_laporan: int
-    per_status: dict  # {"menunggu": int, "diproses": int, "selesai": int}
-    per_kategori: dict  # {"Kehilangan": int, "Fasilitas": int, "Perundungan": int}
-    per_prioritas: dict  # {"tinggi": int, "sedang": int, "rendah": int}
-    laporan_terbaru: Optional[datetime]  # created_at dari laporan terbaru user
-    rata_rata_rating: Optional[float]  # rata-rata rating feedback dari laporan user
+    per_status: dict       # {"menunggu": int, "diproses": int, "selesai": int}
+    per_kategori: dict     # {"Kehilangan": int, "Fasilitas": int, "Perundungan": int}
+    per_prioritas: dict    # {"tinggi": int, "sedang": int, "rendah": int}
+    laporan_terbaru: Optional[datetime]
+    rata_rata_rating: Optional[float]
+    # Graceful degradation fields (Modul 13)
+    degraded: Optional[bool] = False
+    degraded_reason: Optional[str] = None
+
 
 
 # ============================================================
