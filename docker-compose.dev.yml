@@ -1,0 +1,87 @@
+# ============================================================
+# Docker Compose — Development Overrides
+# LaporIn ITK — Tim Bismillah_A
+# ============================================================
+# Override untuk environment development:
+# - Hot-reload (auto-restart saat code berubah)
+# - Expose port database ke host (untuk debugging via pgAdmin, DBeaver, dll)
+# - Tanpa resource limits (agar dev experience lancar)
+# - Volume mount kode sumber untuk live editing
+#
+# Penggunaan:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml down
+#
+# Atau set alias:
+#   alias dc-dev="docker compose -f docker-compose.yml -f docker-compose.dev.yml"
+#   dc-dev up --build
+# ============================================================
+
+services:
+  # ================================
+  # DATABASES — Expose ports ke host
+  # ================================
+  auth-db:
+    ports:
+      - "5433:5432"           # Akses auth_db dari host: localhost:5433
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 512M
+
+  report-db:
+    ports:
+      - "5434:5432"           # Akses report_db dari host: localhost:5434
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 512M
+
+  # ================================
+  # BACKEND — Hot-reload via uvicorn --reload
+  # ================================
+  auth-service:
+    volumes:
+      - ./services/auth-service:/app      # Bind mount untuk live editing
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
+    environment:
+      DEBUG: "true"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 512M
+
+  report-service:
+    volumes:
+      - ./services/report-service:/app    # Bind mount untuk live editing
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8002", "--reload"]
+    environment:
+      DEBUG: "true"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 512M
+
+  # ================================
+  # FRONTEND — Dev mode (looser limits)
+  # ================================
+  frontend:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+
+  # ================================
+  # GATEWAY — Looser limits untuk dev
+  # ================================
+  gateway:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
