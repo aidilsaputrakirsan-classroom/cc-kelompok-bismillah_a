@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import { fetchCategories, createReport } from "../services/api";
 import { ButtonLoading } from "../components/LoadingSpinner";
+import ServiceUnavailableBanner, { isServiceError } from "../components/ServiceUnavailableBanner";
 
 // Fix leaflet default icon
 delete L.Icon.Default.prototype._getIconUrl;
@@ -28,6 +29,7 @@ function LocationMarker({ position, setPosition }) {
 export default function BuatLaporanPage() {
   const navigate = useNavigate();
   const [categories, setCategories] = useState([]);
+  const [catError, setCatError] = useState("");
   const [form, setForm] = useState({
     judul: "",
     deskripsi: "",
@@ -40,9 +42,19 @@ export default function BuatLaporanPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    fetchCategories().then(setCategories);
+  const loadCategories = useCallback(async () => {
+    setCatError("");
+    try {
+      const data = await fetchCategories();
+      setCategories(data);
+    } catch (err) {
+      setCatError(err.message || "Gagal memuat kategori.");
+    }
   }, []);
+
+  useEffect(() => {
+    loadCategories();
+  }, [loadCategories]);
 
   const selectedCategory = categories.find((c) => c.id === Number(form.kategori_id));
   const isPerundungan = selectedCategory?.nama_kategori?.toLowerCase() === "perundungan";
@@ -97,7 +109,25 @@ export default function BuatLaporanPage() {
           </div>
         )}
 
-        {error && (
+        {/* Kategori gagal dimuat — service error */}
+        {catError && isServiceError(catError) && (
+          <ServiceUnavailableBanner onRetry={loadCategories} message={catError} compact />
+        )}
+        {catError && !isServiceError(catError) && (
+          <div className="laporan-alert-error">⚠️ {catError}</div>
+        )}
+
+        {/* Error submit — service error */}
+        {error && isServiceError(error) && (
+          <ServiceUnavailableBanner
+            message={error}
+            compact
+            onRetry={() => setError("")}
+          />
+        )}
+
+        {/* Error submit — generic */}
+        {error && !isServiceError(error) && (
           <div className="laporan-alert-error">⚠️ {error}</div>
         )}
 

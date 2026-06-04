@@ -17,7 +17,7 @@ L.Icon.Default.mergeOptions({
 });
 
 const STATUS_COLORS = { menunggu: "#f59e0b", diproses: "#3b82f6", selesai: "#10b981" };
-const STATUS_ICONS  = { menunggu: "⏳", diproses: "🔄", selesai: "✅" };
+const STATUS_ICONS = { menunggu: "⏳", diproses: "🔄", selesai: "✅" };
 
 export default function DetailLaporanPage() {
   const { id } = useParams();

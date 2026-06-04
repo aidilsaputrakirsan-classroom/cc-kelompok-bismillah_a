@@ -1776,4 +1776,55 @@ html, body {
 /* Page content never overflows */
 .page {
   overflow-x: hidden;
-}
+}
+
+/* ============================================================
+   KEYFRAME ANIMATIONS — ServiceUnavailableBanner & AuthDownBanner
+   ============================================================ */
+
+/* Spinner dipakai di tombol retry saat loading */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Pulse ring di AuthDownBanner */
+@keyframes pulse {
+  0%   { transform: scale(0.8); opacity: 0.7; }
+  70%  { transform: scale(1.8); opacity: 0;   }
+  100% { transform: scale(0.8); opacity: 0;   }
+}
+
+/* Fade-in card */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+/* ============================================================
+   DARK MODE — AUTH DOWN BANNER
+   ============================================================ */
+body.dark [id="auth-down-banner"] {
+  background: linear-gradient(90deg, rgba(30,41,59,0.95) 0%, rgba(15,23,42,0.95) 100%);
+  border-bottom-color: rgba(249,115,22,0.35);
+}
+
+body.dark [id="auth-down-banner"] strong {
+  color: #fb923c !important;
+}
+
+body.dark [id="auth-down-banner"] p {
+  color: #fdba74 !important;
+}
+
+body.dark [id="auth-banner-dismiss-btn"] {
+  border-color: rgba(249,115,22,0.3);
+  color: #fb923c;
+}
+
+/* ============================================================
+   DARK MODE — SERVICE UNAVAILABLE BANNER (enhanced)
+   ============================================================ */
+body.dark [id="service-retry-btn"] {
+  background: linear-gradient(135deg, #d97706, #b45309);
+}
+
