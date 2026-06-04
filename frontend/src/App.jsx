@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { getUser } from "./services/api";
+import { ServiceStatusProvider, useServiceStatus } from "./context/ServiceStatusContext";
+import { AuthDownBanner } from "./components/ServiceUnavailableBanner";
 import Navbar from "./components/Navbar";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
@@ -30,6 +32,16 @@ function RequireGuest({ children }) {
   const user = getUser();
   if (user) return <Navigate to={user.role === "admin" ? "/admin" : "/dashboard"} replace />;
   return children;
+}
+
+// ============================================================
+// GLOBAL BANNER — menampilkan notifikasi auth/service down
+// ============================================================
+
+function GlobalBanner() {
+  const { authDown, clearStatus } = useServiceStatus();
+  if (!authDown) return null;
+  return <AuthDownBanner onDismiss={clearStatus} />;
 }
 
 // ============================================================
@@ -129,7 +141,9 @@ function LandingPage() {
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <ServiceStatusProvider>
+      <GlobalBanner />
+      <BrowserRouter>
       <Routes>
         {/* Public — Guest only */}
         <Route path="/" element={<LandingPage />} />
@@ -182,7 +196,8 @@ export default function App() {
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+        </Routes>
+      </BrowserRouter>
+    </ServiceStatusProvider>
   );
 }
