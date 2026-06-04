@@ -12,12 +12,14 @@ import FilterBar from "../components/FilterBar";
 import ReportCard from "../components/ReportCard";
 import EditReportModal from "../components/EditReportModal";
 import DeleteConfirmModal from "../components/DeleteConfirmModal";
+import ServiceUnavailableBanner, { isServiceError } from "../components/ServiceUnavailableBanner";
 
 export default function DashboardPage() {
   const [reports, setReports] = useState([]);
   const [total, setTotal] = useState(0);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [filters, setFilters] = useState({ status: "", kategori_id: "", search: "" });
 
   // Edit modal state
@@ -31,6 +33,7 @@ export default function DashboardPage() {
 
   const load = async () => {
     setLoading(true);
+    setError("");
     try {
       const params = {};
       if (filters.status) params.status = filters.status;
@@ -41,6 +44,7 @@ export default function DashboardPage() {
       setTotal(data.total);
     } catch (err) {
       console.error(err);
+      setError(err.message || "Gagal memuat laporan.");
     } finally {
       setLoading(false);
     }
@@ -103,7 +107,7 @@ export default function DashboardPage() {
       <div className="container" style={{ padding: "2rem 1.5rem" }}>
 
         {/* Header */}
-        <div className="flex-between" style={{ marginBottom: "2rem", flexWrap: "wrap", gap: "1rem" }}>
+        <div className="flex-between page-header" style={{ marginBottom: "2rem", flexWrap: "wrap", gap: "1rem" }}>
           <div>
             <h1 style={{ fontSize: "1.75rem", fontWeight: 800 }}>Laporan Saya</h1>
             <p style={{ color: "var(--text-muted)", marginTop: "0.25rem" }}>
@@ -122,6 +126,22 @@ export default function DashboardPage() {
           categories={categories}
           onSubmit={load}
         />
+
+        {/* Service Unavailable Banner */}
+        {error && isServiceError(error) && (
+          <ServiceUnavailableBanner onRetry={load} />
+        )}
+
+        {/* Generic error (non-service error) */}
+        {error && !isServiceError(error) && (
+          <div style={{
+            background: "#fee2e2", color: "#991b1b",
+            padding: "0.875rem 1rem", borderRadius: "8px",
+            marginBottom: "1rem", fontSize: "0.875rem",
+          }}>
+            ⚠️ {error}
+          </div>
+        )}
 
         {/* Content */}
         {loading ? (

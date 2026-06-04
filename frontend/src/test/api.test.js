@@ -24,27 +24,29 @@ describe('API Service', () => {
     // Panggil fungsi dari api.js Anda
     const data = await fetchReports()
 
-    // Memastikan fetch dipanggil dengan endpoint dan parameter default dari project Anda
+    // Sejak VITE_API_URL=http://localhost (gateway), BASE_URL tidak lagi kosong.
+    // URL yang di-fetch harus menyertakan prefix gateway.
     expect(fetch).toHaveBeenCalledWith(
-      '/reports?skip=0&limit=20',
+      expect.stringContaining('/reports?skip=0&limit=20'),
       expect.objectContaining({
         method: 'GET',
         headers: expect.objectContaining({
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer fake-token' // Harus ada token
+          'Authorization': 'Bearer fake-token'
         })
       })
     )
     expect(data.reports).toEqual([])
   })
 
-  it('handle error saat API gagal', async () => {
-    // Simulasi fetch gagal (misalnya karena jaringan putus)
+  it('handle error saat API gagal (service unavailable)', async () => {
+    // Simulasi fetch gagal (misalnya karena gateway/Docker tidak berjalan)
     fetch.mockRejectedValueOnce(new Error('Network error'))
 
-    // Memastikan fetchReports melempar error saat fetch gagal
+    // api.js menangkap error jaringan dan melempar pesan user-friendly dalam bahasa Indonesia
+    // (bukan meneruskan pesan teknis 'Network error' langsung ke user)
     await expect(
       fetchReports()
-    ).rejects.toThrow('Network error')
+    ).rejects.toThrow('Layanan sementara tidak tersedia')
   })
 })

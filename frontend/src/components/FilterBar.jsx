@@ -39,7 +39,7 @@ export default function FilterBar({
   };
 
   return (
-    <form onSubmit={handleSubmit} style={filterBarStyle}>
+    <form onSubmit={handleSubmit} style={filterBarStyle} className="filter-bar-form">
       <input
         className="form-input"
         placeholder="🔍 Cari laporan..."
