@@ -9,7 +9,9 @@ WORKDIR /app
 
 # Copy requirements dulu (cache optimization)
 COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
+RUN apt-get update && apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/* && \
+    pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 # Copy seluruh kode aplikasi
