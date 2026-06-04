@@ -75,10 +75,10 @@ services:
       - laporin_ms_net
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
-      interval: 30s
-      timeout: 10s
+      interval: 10s
+      timeout: 5s
       retries: 3
-      start_period: 15s
+      start_period: 20s
 
   report-service:
     build: ./services/report-service
@@ -92,15 +92,15 @@ services:
       report-db:
         condition: service_healthy
       auth-service:
-        condition: service_started
+        condition: service_healthy
     networks:
       - laporin_ms_net
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')"]
-      interval: 30s
-      timeout: 10s
+      interval: 10s
+      timeout: 5s
       retries: 3
-      start_period: 15s
+      start_period: 20s
 
   # ================================
   # FRONTEND
@@ -131,9 +131,12 @@ services:
     volumes:
       - ./services/gateway/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
-      - auth-service
-      - report-service
-      - frontend
+      auth-service:
+        condition: service_healthy
+      report-service:
+        condition: service_healthy
+      frontend:
+        condition: service_started
     networks:
       - laporin_ms_net
 

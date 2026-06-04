@@ -257,6 +257,23 @@ class DashboardStats(BaseModel):
 
 
 # ============================================================
+# REPORT STATS SCHEMAS (Lead Backend — Modul 12)
+# ============================================================
+
+class ReportStats(BaseModel):
+    """
+    Schema untuk statistik laporan milik user yang sedang login.
+    Digunakan oleh endpoint GET /reports/stats.
+    """
+    total_laporan: int
+    per_status: dict  # {"menunggu": int, "diproses": int, "selesai": int}
+    per_kategori: dict  # {"Kehilangan": int, "Fasilitas": int, "Perundungan": int}
+    per_prioritas: dict  # {"tinggi": int, "sedang": int, "rendah": int}
+    laporan_terbaru: Optional[datetime]  # created_at dari laporan terbaru user
+    rata_rata_rating: Optional[float]  # rata-rata rating feedback dari laporan user
+
+
+# ============================================================
 # STATUS LOG SCHEMAS
 # ============================================================
 

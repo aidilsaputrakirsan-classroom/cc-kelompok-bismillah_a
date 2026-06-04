@@ -56,21 +56,6 @@ const styles = {
     borderTop: "1px solid var(--border)",
     flexWrap: "wrap",
   },
-  actionBar: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: "0.625rem 1.5rem",
-    background: "#fffbeb",
-    borderTop: "1px solid #fde68a",
-    flexWrap: "wrap",
-    gap: "0.5rem",
-  },
-  actionHint: {
-    fontSize: "0.75rem",
-    color: "#92400e",
-    fontWeight: 500,
-  },
 };
 
 /**
@@ -102,7 +87,7 @@ export default function ReportCard({ report, formatDate, onEdit, onDelete }) {
                 {r.prioritas}
               </span>
               {r.anonim && (
-                <span className="badge" style={{ background: "#f1f5f9", color: "#475569" }}>
+                <span className="badge badge-anonim">
                   🕶️ Anonim
                 </span>
               )}
@@ -120,8 +105,8 @@ export default function ReportCard({ report, formatDate, onEdit, onDelete }) {
 
       {/* Action bar — hanya tampil jika status "menunggu" */}
       {r.status === "menunggu" && (
-        <div style={styles.actionBar}>
-          <span style={styles.actionHint}>
+        <div className="report-action-bar">
+          <span className="report-action-hint">
             ℹ️ Laporan masih bisa diedit atau dihapus selagi menunggu
           </span>
           <div style={{ display: "flex", gap: "0.5rem" }}>

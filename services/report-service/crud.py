@@ -5,7 +5,7 @@ Disesuaikan dari backend/crud.py — TANPA auth CRUD (sudah di Auth Service).
 """
 
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import or_
+from sqlalchemy import or_, func as sa_func
 
 from models import (
     Category, Report, ReportLocation, ReportAttachment,
@@ -224,6 +224,92 @@ def get_map_reports(
         }
         for r in reports
     ]
+
+
+def get_report_stats(db: Session, user_id: int) -> dict:
+    """
+    Ambil statistik laporan milik user yang sedang login.
+
+    Menghitung:
+    - Total laporan user
+    - Jumlah laporan per status (menunggu, diproses, selesai)
+    - Jumlah laporan per kategori (Kehilangan, Fasilitas, Perundungan)
+    - Jumlah laporan per prioritas (tinggi, sedang, rendah)
+    - Tanggal laporan terbaru yang dibuat user
+    - Rata-rata rating feedback dari laporan-laporan user
+
+    Endpoint: GET /reports/stats
+    Branch: feature/item-stats-service (Lead Backend — Modul 12)
+    """
+    # Total laporan milik user
+    total = db.query(Report).filter(Report.user_id == user_id).count()
+
+    # Per status — query sekali, olah di Python
+    per_status = {
+        "menunggu": db.query(Report).filter(
+            Report.user_id == user_id, Report.status == "menunggu"
+        ).count(),
+        "diproses": db.query(Report).filter(
+            Report.user_id == user_id, Report.status == "diproses"
+        ).count(),
+        "selesai": db.query(Report).filter(
+            Report.user_id == user_id, Report.status == "selesai"
+        ).count(),
+    }
+
+    # Per kategori — join dengan tabel categories untuk nama
+    per_kategori: dict = {}
+    rows_kategori = (
+        db.query(Category.nama_kategori, sa_func.count(Report.id))
+        .join(Report, Report.kategori_id == Category.id)
+        .filter(Report.user_id == user_id)
+        .group_by(Category.nama_kategori)
+        .all()
+    )
+    for nama, count in rows_kategori:
+        per_kategori[nama] = count
+
+    # Per prioritas
+    per_prioritas = {
+        "tinggi": db.query(Report).filter(
+            Report.user_id == user_id, Report.prioritas == "tinggi"
+        ).count(),
+        "sedang": db.query(Report).filter(
+            Report.user_id == user_id, Report.prioritas == "sedang"
+        ).count(),
+        "rendah": db.query(Report).filter(
+            Report.user_id == user_id, Report.prioritas == "rendah"
+        ).count(),
+    }
+
+    # Laporan terbaru
+    newest = (
+        db.query(Report.created_at)
+        .filter(Report.user_id == user_id)
+        .order_by(Report.created_at.desc())
+        .first()
+    )
+    laporan_terbaru = newest[0] if newest else None
+
+    # Rata-rata rating feedback dari laporan-laporan milik user ini
+    avg_result = (
+        db.query(sa_func.avg(Feedback.rating))
+        .join(Report, Report.id == Feedback.report_id)
+        .filter(Report.user_id == user_id)
+        .scalar()
+    )
+    rata_rata_rating = round(float(avg_result), 2) if avg_result is not None else None
+
+    return {
+        "total_laporan": total,
+        "per_status": per_status,
+        "per_kategori": per_kategori,
+        "per_prioritas": per_prioritas,
+        "laporan_terbaru": laporan_terbaru,
+        "rata_rata_rating": rata_rata_rating,
+    }
+
+
 
 
 def update_report(

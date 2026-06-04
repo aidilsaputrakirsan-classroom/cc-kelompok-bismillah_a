@@ -14,6 +14,7 @@ const styles = {
     marginBottom: "1.25rem",
     paddingBottom: "0.75rem",
     borderBottom: "1px solid var(--border)",
+    color: "var(--text-primary)",
   },
   statusTimeline: {
     display: "flex",
@@ -55,9 +56,6 @@ const styles = {
   },
 };
 
-/**
- * @param {string} currentStatus - Status aktif saat ini (menunggu/diproses/selesai)
- */
 export default function StatusTimeline({ currentStatus }) {
   const statuses = ["menunggu", "diproses", "selesai"];
   const currentIndex = statuses.indexOf(currentStatus);
@@ -70,11 +68,15 @@ export default function StatusTimeline({ currentStatus }) {
           const isActive = i <= currentIndex;
           return (
             <div key={s} style={styles.timelineStep}>
-              <div style={{
-                ...styles.timelineDot,
-                background: isActive ? STATUS_COLORS[s] : "#e2e8f0",
-                color: isActive ? "white" : "#94a3b8",
-              }}>
+              {/* Use className for inactive so dark mode override works */}
+              <div
+                className={!isActive ? "timeline-dot-inactive" : ""}
+                style={{
+                  ...styles.timelineDot,
+                  background: isActive ? STATUS_COLORS[s] : undefined,
+                  color: isActive ? "white" : undefined,
+                }}
+              >
                 {STATUS_ICONS[s]}
               </div>
               <div style={{
@@ -85,10 +87,13 @@ export default function StatusTimeline({ currentStatus }) {
                 {s.charAt(0).toUpperCase() + s.slice(1)}
               </div>
               {i < 2 && (
-                <div style={{
-                  ...styles.timelineLine,
-                  background: i < currentIndex ? STATUS_COLORS[statuses[i + 1]] : "#e2e8f0",
-                }} />
+                <div
+                  className={i < currentIndex ? "" : "timeline-line-inactive"}
+                  style={{
+                    ...styles.timelineLine,
+                    background: i < currentIndex ? STATUS_COLORS[statuses[i + 1]] : undefined,
+                  }}
+                />
               )}
             </div>
           );
