@@ -97,6 +97,7 @@ export default function Navbar() {
                 <>
                   <li><Link to="/dashboard" className={isActive("/dashboard")}>Laporan Saya</Link></li>
                   <li><Link to="/laporan/buat" className={isActive("/laporan/buat")}>Buat Laporan</Link></li>
+                  <li><Link to="/kehilangan" className={isActive("/kehilangan")}>🔍 Kehilangan</Link></li>
                   <li><Link to="/peta" className={isActive("/peta")}>🗺️ Peta</Link></li>
                 </>
               )}
@@ -182,6 +183,7 @@ export default function Navbar() {
               <>
                 <Link to="/dashboard" className={isActive("/dashboard")}>📋 Laporan Saya</Link>
                 <Link to="/laporan/buat" className={isActive("/laporan/buat")}>➕ Buat Laporan</Link>
+                <Link to="/kehilangan" className={isActive("/kehilangan")}>🔍 Daftar Kehilangan</Link>
                 <Link to="/peta" className={isActive("/peta")}>🗺️ Peta Sebaran</Link>
               </>
             )}

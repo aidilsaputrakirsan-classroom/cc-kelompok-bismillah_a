@@ -291,3 +291,17 @@ export const updateReportByUser = async (id, data) => {
 export const deleteReport = async (id) => {
   return request("DELETE", `/reports/${id}`);
 };
+
+// ============================================================
+// DAFTAR KEHILANGAN (Publik untuk semua User)
+// ============================================================
+
+/**
+ * Ambil semua laporan Kehilangan dari semua user.
+ * Mendukung pagination dan pencarian berdasarkan nama/deskripsi/lokasi barang.
+ */
+export const fetchLostReports = async ({ skip = 0, limit = 20, search } = {}) => {
+  const params = new URLSearchParams({ skip, limit });
+  if (search) params.set("search", search);
+  return request("GET", `/reports/kehilangan?${params}`);
+};

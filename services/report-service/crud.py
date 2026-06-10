@@ -426,6 +426,40 @@ def get_public_reports(
     return {"total": total, "reports": public_reports}
 
 
+def get_lost_reports(
+    db: Session,
+    skip: int = 0,
+    limit: int = 20,
+    search: str | None = None,
+) -> dict:
+    """
+    Ambil semua laporan kategori Kehilangan dari semua user.
+    Laporan kehilangan bersifat publik dan dapat dilihat oleh seluruh user yang terautentikasi.
+    Mendukung pagination dan pencarian berdasarkan judul/deskripsi/lokasi.
+    """
+    query = db.query(Report).options(
+        joinedload(Report.category),
+        joinedload(Report.locations),
+        joinedload(Report.attachments),
+    ).join(Report.category).filter(
+        Category.nama_kategori.ilike("kehilangan")
+    )
+
+    if search:
+        query = query.filter(
+            or_(
+                Report.judul.ilike(f"%{search}%"),
+                Report.deskripsi.ilike(f"%{search}%"),
+                Report.lokasi.ilike(f"%{search}%"),
+            )
+        )
+
+    total = query.count()
+    reports = query.order_by(Report.created_at.desc()).offset(skip).limit(limit).all()
+
+    return {"total": total, "reports": reports}
+
+
 def update_report(
     db: Session,
     report_id: int,

@@ -10,6 +10,7 @@ import BuatLaporanPage from "./pages/BuatLaporanPage";
 import DetailLaporanPage from "./pages/DetailLaporanPage";
 import AdminDashboardPage from "./pages/AdminDashboardPage";
 import PetaSebaranPage from "./pages/PetaSebaranPage";
+import DaftarKehilanganPage from "./pages/DaftarKehilanganPage";
 
 // ============================================================
 // ROUTE GUARDS
@@ -177,6 +178,12 @@ export default function App() {
           <RequireAuth>
             <Navbar />
             <PetaSebaranPage />
+          </RequireAuth>
+        } />
+        <Route path="/kehilangan" element={
+          <RequireAuth>
+            <Navbar />
+            <DaftarKehilanganPage />
           </RequireAuth>
         } />
 

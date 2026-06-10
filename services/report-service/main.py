@@ -165,6 +165,28 @@ async def buat_laporan(
     return crud.create_report(db=db, report_data=report_data, user_id=user["user_id"])
 
 
+@app.get("/reports/kehilangan", response_model=ReportListResponse, tags=["Laporan"])
+async def daftar_kehilangan(
+    skip: int = Query(0, ge=0, description="Offset pagination"),
+    limit: int = Query(20, ge=1, le=100, description="Jumlah per halaman"),
+    search: str | None = Query(None, description="Cari berdasarkan judul/deskripsi/lokasi barang"),
+    db: Session = Depends(get_db),
+    user: dict = Depends(verify_token_with_auth_service),
+):
+    """
+    Ambil semua laporan Kehilangan dari seluruh user. **Membutuhkan autentikasi.**
+
+    Laporan kehilangan bersifat terbuka untuk semua pengguna yang terautentikasi.
+    Mendukung pencarian berdasarkan nama/deskripsi/lokasi barang.
+    """
+    return crud.get_lost_reports(
+        db=db,
+        skip=skip,
+        limit=limit,
+        search=search,
+    )
+
+
 @app.get("/reports/map", response_model=list[MapReportResponse], tags=["Peta Sebaran"])
 async def peta_sebaran(
     status: str | None = Query(None, description="Filter: menunggu / diproses / selesai"),
@@ -288,13 +310,22 @@ async def detail_laporan(
     db: Session = Depends(get_db),
     user: dict = Depends(verify_token_with_auth_service),
 ):
-    """Ambil detail satu laporan. **Membutuhkan autentikasi.**"""
+    """Ambil detail satu laporan. **Membutuhkan autentikasi.**
+
+    - Laporan **Kehilangan**: dapat diakses oleh semua user yang terautentikasi.
+    - Laporan **Fasilitas** & **Perundungan**: hanya pemilik laporan atau admin.
+    """
     report = crud.get_report(db=db, report_id=report_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Laporan {report_id} tidak ditemukan")
 
-    # User biasa hanya bisa lihat laporan sendiri
-    if user.get("role") != "admin" and report.user_id != user["user_id"]:
+    # Cek apakah laporan Kehilangan (boleh dilihat semua user)
+    is_kehilangan = (
+        report.category and report.category.nama_kategori.lower() == "kehilangan"
+    )
+
+    # Fasilitas & Perundungan hanya bisa dilihat pemilik atau admin
+    if user.get("role") != "admin" and report.user_id != user["user_id"] and not is_kehilangan:
         raise HTTPException(status_code=403, detail="Tidak memiliki akses ke laporan ini")
 
     return report
