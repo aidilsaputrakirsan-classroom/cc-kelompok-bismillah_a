@@ -10,7 +10,7 @@ from sqlalchemy import or_, func as sa_func
 from models import (
     Category, Report, ReportLocation, ReportAttachment,
     ReportStatusLog, Comment, Notification, Feedback, Unit,
-    ReportAssignment
+    ReportAssignment, FoundClaim
 )
 from schemas import (
     ReportCreate, ReportUpdate, ReportLocationCreate,
@@ -70,7 +70,7 @@ def seed_units(db: Session):
 # REPORT CRUD
 # ============================================================
 
-def create_report(db: Session, report_data: ReportCreate, user_id: int) -> Report:
+def create_report(db: Session, report_data: ReportCreate, user_id: int, pelapor_nama: str = "") -> Report:
     """
     Buat laporan baru.
     - Jika kategori Perundungan → otomatis is_sensitive=True dan anonim=True
@@ -85,6 +85,7 @@ def create_report(db: Session, report_data: ReportCreate, user_id: int) -> Repor
 
     report = Report(
         user_id=user_id,
+        pelapor_nama=pelapor_nama or f"Pengguna #{user_id}",
         judul=report_data.judul,
         deskripsi=report_data.deskripsi,
         kategori_id=report_data.kategori_id,
@@ -177,12 +178,21 @@ def get_reports(
 
 
 def get_report(db: Session, report_id: int) -> Report | None:
-    """Ambil satu laporan berdasarkan ID dengan semua relasi."""
-    return db.query(Report).options(
+    """Ambil satu laporan berdasarkan ID dengan semua relasi termasuk found_claims."""
+    report = db.query(Report).options(
         joinedload(Report.category),
         joinedload(Report.locations),
         joinedload(Report.attachments),
+        joinedload(Report.found_claims),
     ).filter(Report.id == report_id).first()
+
+    if report and report.found_claims:
+        # Set user_nama dari claimant_user_id karena tidak ada FK ke auth_db
+        for claim in report.found_claims:
+            if not hasattr(claim, '_user_nama_set'):
+                claim.user_nama = f"Pengguna #{claim.claimant_user_id}"
+
+    return report
 
 
 def get_map_reports(
@@ -211,6 +221,7 @@ def get_map_reports(
     return [
         {
             "id": r.id,
+            "user_id": r.user_id,
             "judul": r.judul,
             "lokasi": r.lokasi,
             "latitude": r.latitude,
@@ -683,6 +694,7 @@ def get_dashboard_stats(db: Session) -> dict:
     menunggu = db.query(Report).filter(Report.status == "menunggu").count()
     diproses = db.query(Report).filter(Report.status == "diproses").count()
     selesai = db.query(Report).filter(Report.status == "selesai").count()
+    ditemukan = db.query(Report).filter(Report.status == "ditemukan").count()
 
     kategori_stats = {}
     for cat in db.query(Category).all():
@@ -700,6 +712,267 @@ def get_dashboard_stats(db: Session) -> dict:
         "menunggu": menunggu,
         "diproses": diproses,
         "selesai": selesai,
+        "ditemukan": ditemukan,
         "kategori_stats": kategori_stats,
         "prioritas_stats": prioritas_stats,
     }
+
+
+# ============================================================
+# KEHILANGAN (PUBLIC) CRUD
+# ============================================================
+
+def get_kehilangan_category_id(db: Session) -> int | None:
+    """Ambil ID kategori 'Kehilangan'."""
+    cat = db.query(Category).filter(
+        Category.nama_kategori.ilike("kehilangan")
+    ).first()
+    return cat.id if cat else None
+
+
+def get_kehilangan_reports(
+    db: Session,
+    skip: int = 0,
+    limit: int = 20,
+    status: str | None = None,
+    search: str | None = None,
+) -> dict:
+    """
+    Ambil daftar laporan Kehilangan dari semua user (publik, perlu login).
+    Kembalikan dict untuk diubah menjadi KehilanganPublicResponse di endpoint.
+    """
+    from models import FoundClaim
+    kehilangan_id = get_kehilangan_category_id(db)
+    if kehilangan_id is None:
+        return {"total": 0, "reports": []}
+
+    query = db.query(Report).options(
+        joinedload(Report.category),
+        joinedload(Report.found_claims),
+    ).filter(Report.kategori_id == kehilangan_id)
+
+    if status:
+        query = query.filter(Report.status == status)
+
+    if search:
+        query = query.filter(
+            or_(
+                Report.judul.ilike(f"%{search}%"),
+                Report.deskripsi.ilike(f"%{search}%"),
+                Report.lokasi.ilike(f"%{search}%"),
+            )
+        )
+
+    total = query.count()
+    reports = query.order_by(Report.created_at.desc()).offset(skip).limit(limit).all()
+
+    return {"total": total, "reports": reports}
+
+
+def get_kehilangan_report_by_id(db: Session, report_id: int):
+    """Ambil satu laporan kehilangan berdasarkan ID (dengan found_claims)."""
+    from models import FoundClaim
+    report = db.query(Report).options(
+        joinedload(Report.category),
+        joinedload(Report.found_claims),
+    ).filter(Report.id == report_id).first()
+
+    if not report:
+        return None
+
+    # Pastikan ini kategori kehilangan
+    if not report.category or report.category.nama_kategori.lower() != "kehilangan":
+        return None
+
+    return report
+
+
+def mark_report_found_by_owner(
+    db: Session,
+    report_id: int,
+    user_id: int,
+) -> tuple:
+    """
+    Owner menandai laporan kehilangannya sendiri sebagai 'ditemukan'.
+    Return (report, error_string | None).
+    """
+    report = db.query(Report).filter(
+        Report.id == report_id,
+        Report.user_id == user_id,
+    ).first()
+
+    if not report:
+        return None, "not_found"
+
+    if report.status in ("ditemukan", "selesai"):
+        return None, "already_done"
+
+    old_status = report.status
+    report.status = "ditemukan"
+    db.commit()
+    db.refresh(report)
+
+    # Log
+    log = ReportStatusLog(
+        report_id=report_id,
+        status="ditemukan",
+        changed_by=user_id,
+        catatan="Ditandai ditemukan sendiri oleh pelapor",
+    )
+    db.add(log)
+
+    # Notifikasi ke user sendiri
+    notif = Notification(
+        user_id=user_id,
+        pesan=f"Laporan '{report.judul}' telah ditandai sebagai sudah ditemukan.",
+    )
+    db.add(notif)
+    db.commit()
+
+    return db.query(Report).options(
+        joinedload(Report.category),
+        joinedload(Report.found_claims),
+    ).filter(Report.id == report_id).first(), None
+
+
+def create_found_claim(
+    db: Session,
+    report_id: int,
+    claimant_user_id: int,
+    deskripsi: str,
+    bukti_url: str | None = None,
+) -> tuple:
+    """
+    User lain mengklaim menemukan barang. Kirim notifikasi ke pemilik laporan.
+    Return (claim, error_string | None).
+    """
+    from models import FoundClaim
+
+    report = db.query(Report).filter(Report.id == report_id).first()
+    if not report:
+        return None, "not_found"
+
+    if report.user_id == claimant_user_id:
+        return None, "own_report"
+
+    if report.status in ("ditemukan", "selesai"):
+        return None, "already_done"
+
+    # Cek sudah pernah klaim sebelumnya
+    existing = db.query(FoundClaim).filter(
+        FoundClaim.report_id == report_id,
+        FoundClaim.claimant_user_id == claimant_user_id,
+        FoundClaim.status == "pending",
+    ).first()
+    if existing:
+        return None, "already_claimed"
+
+    claim = FoundClaim(
+        report_id=report_id,
+        claimant_user_id=claimant_user_id,
+        deskripsi=deskripsi,
+        bukti_url=bukti_url,
+        status="pending",
+    )
+    db.add(claim)
+    db.commit()
+    db.refresh(claim)
+
+    # Notifikasi ke pemilik laporan
+    notif = Notification(
+        user_id=report.user_id,
+        pesan=f"Ada seseorang yang mengklaim menemukan barang Anda pada laporan '{report.judul}'. Silakan cek detail laporan.",
+    )
+    db.add(notif)
+    db.commit()
+
+    return claim, None
+
+
+def confirm_found_claim(
+    db: Session,
+    report_id: int,
+    claim_id: int,
+    owner_user_id: int,
+) -> tuple:
+    """Pemilik laporan konfirmasi bahwa klaim valid → status laporan jadi 'ditemukan'."""
+    from models import FoundClaim
+
+    report = db.query(Report).filter(
+        Report.id == report_id,
+        Report.user_id == owner_user_id,
+    ).first()
+    if not report:
+        return None, "not_found"
+
+    claim = db.query(FoundClaim).filter(
+        FoundClaim.id == claim_id,
+        FoundClaim.report_id == report_id,
+        FoundClaim.status == "pending",
+    ).first()
+    if not claim:
+        return None, "claim_not_found"
+
+    # Update klaim
+    claim.status = "accepted"
+
+    # Update status laporan
+    old_status = report.status
+    report.status = "ditemukan"
+    db.commit()
+
+    # Log
+    log = ReportStatusLog(
+        report_id=report_id,
+        status="ditemukan",
+        changed_by=owner_user_id,
+        catatan=f"Klaim penemuan dikonfirmasi oleh pemilik laporan (claim_id={claim_id})",
+    )
+    db.add(log)
+
+    # Notifikasi ke penemu
+    notif_finder = Notification(
+        user_id=claim.claimant_user_id,
+        pesan=f"Klaim penemuan Anda untuk laporan '{report.judul}' telah dikonfirmasi! Terima kasih.",
+    )
+    # Notifikasi ke pemilik
+    notif_owner = Notification(
+        user_id=owner_user_id,
+        pesan=f"Laporan '{report.judul}' telah berhasil dikonfirmasi ditemukan.",
+    )
+    db.add(notif_finder)
+    db.add(notif_owner)
+    db.commit()
+
+    return claim, None
+
+
+def reject_found_claim(
+    db: Session,
+    report_id: int,
+    claim_id: int,
+    owner_user_id: int,
+) -> tuple:
+    """Pemilik laporan menolak klaim penemuan."""
+    from models import FoundClaim
+
+    report = db.query(Report).filter(
+        Report.id == report_id,
+        Report.user_id == owner_user_id,
+    ).first()
+    if not report:
+        return None, "not_found"
+
+    claim = db.query(FoundClaim).filter(
+        FoundClaim.id == claim_id,
+        FoundClaim.report_id == report_id,
+        FoundClaim.status == "pending",
+    ).first()
+    if not claim:
+        return None, "claim_not_found"
+
+    claim.status = "rejected"
+    db.commit()
+    db.refresh(claim)
+
+    return claim, None

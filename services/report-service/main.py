@@ -12,8 +12,10 @@ Microservice ini bertanggung jawab untuk:
 """
 import os
 import logging
-from fastapi import FastAPI, Depends, HTTPException, Query, Header
+import shutil
+from fastapi import FastAPI, Depends, HTTPException, Query, Header, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
@@ -39,9 +41,62 @@ from schemas import (
     DashboardStats,
     # Stats (Lead Backend — Modul 12)
     ReportStats,
+    # Kehilangan public
+    KehilanganPublicResponse, KehilanganPublicListResponse, FoundClaimResponse,
 )
 from auth_client import verify_token_with_auth_service, require_admin_from_auth_service, auth_circuit
 import crud
+
+# Upload dir untuk foto bukti penemuan
+UPLOAD_DIR = "/app/uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+
+# Helper: build KehilanganPublicResponse dict dari Report model
+async def _build_kehilangan_response(report, user: dict | None = None) -> dict:
+    """
+    Build dict yang sesuai dengan KehilanganPublicResponse.
+    pelapor_nama diambil langsung dari field tersimpan di database (Report.pelapor_nama).
+    Untuk laporan anonim, nama disembunyikan.
+    """
+    # Gunakan nama yang tersimpan di kolom pelapor_nama
+    if report.anonim:
+        pelapor_nama = "Anonim"
+    else:
+        pelapor_nama = report.pelapor_nama or f"Pengguna #{report.user_id}"
+
+    claims_data = []
+    for c in (report.found_claims or []):
+        claims_data.append({
+            "id": c.id,
+            "report_id": c.report_id,
+            "claimant_user_id": c.claimant_user_id,
+            "user_nama": f"Pengguna #{c.claimant_user_id}",
+            "deskripsi": c.deskripsi,
+            "bukti_url": c.bukti_url,
+            "status": c.status,
+            "created_at": c.created_at,
+        })
+
+    return {
+        "id": report.id,
+        "judul": report.judul,
+        "deskripsi": report.deskripsi,
+        "lokasi": report.lokasi,
+        "latitude": report.latitude,
+        "longitude": report.longitude,
+        "tanggal_kejadian": report.tanggal_kejadian,
+        "status": report.status,
+        "prioritas": report.prioritas,
+        "anonim": report.anonim,
+        "pelapor_id": report.user_id,
+        "pelapor_nama": pelapor_nama,
+        "created_at": report.created_at,
+        "updated_at": report.updated_at,
+        "category": {"id": report.category.id, "nama_kategori": report.category.nama_kategori} if report.category else None,
+        "found_claims": claims_data,
+    }
+
 
 # Setup logging
 logging.basicConfig(
@@ -69,16 +124,36 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount static folder untuk uploads bukti penemuan
+from pathlib import Path
+_upload_path = Path(UPLOAD_DIR)
+_upload_path.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(_upload_path)), name="uploads")
+
 
 # ==================== STARTUP: SEED DATA ====================
 
 @app.on_event("startup")
 def startup_event():
-    """Seed data awal saat startup."""
+    """Seed data awal saat startup + jalankan migrasi kolom baru."""
     db = next(get_db())
     try:
         crud.seed_categories(db)
         crud.seed_units(db)
+
+        # ── Migrasi: tambah kolom baru yang mungkin belum ada di DB lama ──
+        migrations = [
+            "ALTER TABLE reports ADD COLUMN IF NOT EXISTS pelapor_nama VARCHAR(100)",
+            "ALTER TABLE found_claims ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'pending'",
+        ]
+        for sql in migrations:
+            try:
+                db.execute(text(sql))
+                db.commit()
+                logger.info(f"[startup] Migration OK: {sql[:60]}")
+            except Exception as e:
+                db.rollback()
+                logger.warning(f"[startup] Migration skipped ({e}): {sql[:60]}")
     finally:
         db.close()
 
@@ -162,7 +237,7 @@ async def buat_laporan(
     if not category:
         raise HTTPException(status_code=404, detail="Kategori tidak ditemukan")
 
-    return crud.create_report(db=db, report_data=report_data, user_id=user["user_id"])
+    return crud.create_report(db=db, report_data=report_data, user_id=user["user_id"], pelapor_nama=user.get("nama", ""))
 
 
 @app.get("/reports/map", response_model=list[MapReportResponse], tags=["Peta Sebaran"])
@@ -280,6 +355,141 @@ def daftar_laporan_publik(
         status=status,
         kategori_id=kategori_id,
     )
+
+
+# ==================== KEHILANGAN (PUBLIC, PERLU LOGIN) ====================
+
+@app.get("/reports/kehilangan", response_model=KehilanganPublicListResponse, tags=["Kehilangan"])
+async def daftar_kehilangan(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    status: str | None = Query(None),
+    search: str | None = Query(None),
+    db: Session = Depends(get_db),
+    user: dict = Depends(verify_token_with_auth_service),
+):
+    """Daftar semua laporan Kehilangan dari seluruh user. **Membutuhkan autentikasi.**"""
+    result = crud.get_kehilangan_reports(db=db, skip=skip, limit=limit, status=status, search=search)
+    built = []
+    for r in result["reports"]:
+        built.append(await _build_kehilangan_response(r, user))
+    return {"total": result["total"], "reports": built}
+
+
+@app.get("/reports/kehilangan/{report_id}", response_model=KehilanganPublicResponse, tags=["Kehilangan"])
+async def detail_kehilangan(
+    report_id: int,
+    db: Session = Depends(get_db),
+    user: dict = Depends(verify_token_with_auth_service),
+):
+    """Detail satu laporan kehilangan. **Membutuhkan autentikasi.**"""
+    report = crud.get_kehilangan_report_by_id(db=db, report_id=report_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="Laporan kehilangan tidak ditemukan")
+    return await _build_kehilangan_response(report, user)
+
+
+@app.patch("/reports/{report_id}/found", response_model=KehilanganPublicResponse, tags=["Kehilangan"])
+async def tandai_ditemukan_sendiri(
+    report_id: int,
+    db: Session = Depends(get_db),
+    user: dict = Depends(verify_token_with_auth_service),
+):
+    """Pemilik laporan menandai barangnya sudah ditemukan sendiri. **Membutuhkan autentikasi.**"""
+    report, error = crud.mark_report_found_by_owner(db=db, report_id=report_id, user_id=user["user_id"])
+    if error == "not_found":
+        raise HTTPException(status_code=404, detail="Laporan tidak ditemukan atau bukan milik Anda")
+    if error == "already_done":
+        raise HTTPException(status_code=400, detail="Laporan sudah berstatus ditemukan atau selesai")
+    return await _build_kehilangan_response(report, user)
+
+
+@app.post("/reports/{report_id}/claim-found", tags=["Kehilangan"], status_code=201)
+async def klaim_menemukan_barang(
+    report_id: int,
+    deskripsi: str = Form(..., min_length=5),
+    bukti: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: dict = Depends(verify_token_with_auth_service),
+):
+    """User mengklaim menemukan barang. Kirim deskripsi + foto bukti. **Membutuhkan autentikasi.**"""
+    # Simpan file ke disk
+    import uuid
+    ext = bukti.filename.rsplit(".", 1)[-1].lower() if "." in bukti.filename else "jpg"
+    if ext not in ("jpg", "jpeg", "png", "webp"):
+        raise HTTPException(status_code=400, detail="Format file harus jpg/jpeg/png/webp")
+    filename = f"{uuid.uuid4()}.{ext}"
+    file_path = os.path.join(UPLOAD_DIR, filename)
+    try:
+        with open(file_path, "wb") as f:
+            shutil.copyfileobj(bukti.file, f)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gagal menyimpan file: {e}")
+
+    bukti_url = f"/uploads/{filename}"
+
+    claim, error = crud.create_found_claim(
+        db=db,
+        report_id=report_id,
+        claimant_user_id=user["user_id"],
+        deskripsi=deskripsi,
+        bukti_url=bukti_url,
+    )
+    if error == "not_found":
+        raise HTTPException(status_code=404, detail="Laporan tidak ditemukan")
+    if error == "own_report":
+        raise HTTPException(status_code=400, detail="Anda tidak bisa mengklaim laporan milik sendiri")
+    if error == "already_done":
+        raise HTTPException(status_code=400, detail="Laporan sudah ditemukan/selesai")
+    if error == "already_claimed":
+        raise HTTPException(status_code=400, detail="Anda sudah memiliki klaim aktif untuk laporan ini")
+
+    return {
+        "id": claim.id,
+        "report_id": claim.report_id,
+        "claimant_user_id": claim.claimant_user_id,
+        "user_nama": user.get("nama", ""),
+        "deskripsi": claim.deskripsi,
+        "bukti_url": claim.bukti_url,
+        "status": claim.status,
+        "created_at": claim.created_at,
+    }
+
+
+@app.patch("/reports/{report_id}/claims/{claim_id}/confirm", tags=["Kehilangan"])
+async def konfirmasi_klaim(
+    report_id: int,
+    claim_id: int,
+    db: Session = Depends(get_db),
+    user: dict = Depends(verify_token_with_auth_service),
+):
+    """Pemilik laporan mengkonfirmasi klaim penemuan. **Membutuhkan autentikasi.**"""
+    claim, error = crud.confirm_found_claim(
+        db=db, report_id=report_id, claim_id=claim_id, owner_user_id=user["user_id"]
+    )
+    if error == "not_found":
+        raise HTTPException(status_code=404, detail="Laporan tidak ditemukan atau bukan milik Anda")
+    if error == "claim_not_found":
+        raise HTTPException(status_code=404, detail="Klaim tidak ditemukan atau sudah diproses")
+    return {"message": "Klaim dikonfirmasi. Status laporan berubah menjadi ditemukan.", "claim_id": claim.id}
+
+
+@app.patch("/reports/{report_id}/claims/{claim_id}/reject", tags=["Kehilangan"])
+async def tolak_klaim(
+    report_id: int,
+    claim_id: int,
+    db: Session = Depends(get_db),
+    user: dict = Depends(verify_token_with_auth_service),
+):
+    """Pemilik laporan menolak klaim penemuan. **Membutuhkan autentikasi.**"""
+    claim, error = crud.reject_found_claim(
+        db=db, report_id=report_id, claim_id=claim_id, owner_user_id=user["user_id"]
+    )
+    if error == "not_found":
+        raise HTTPException(status_code=404, detail="Laporan tidak ditemukan atau bukan milik Anda")
+    if error == "claim_not_found":
+        raise HTTPException(status_code=404, detail="Klaim tidak ditemukan atau sudah diproses")
+    return {"message": "Klaim ditolak.", "claim_id": claim.id}
 
 
 @app.get("/reports/{report_id}", response_model=ReportResponse, tags=["Laporan"])

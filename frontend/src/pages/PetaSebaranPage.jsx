@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
-import { fetchMapReports, fetchCategories } from "../services/api";
+import { fetchMapReports, fetchCategories, getUser } from "../services/api";
 import ServiceUnavailableBanner, { isServiceError } from "../components/ServiceUnavailableBanner";
 
 // ============================================================
@@ -14,10 +14,9 @@ const ITK_ZOOM = 17;
 const ITK_MIN_ZOOM = 15;
 const ITK_MAX_ZOOM = 19;
 
-// Bounding box — kunci peta di area kampus ITK saja
 const ITK_BOUNDS = [
-  [-1.1570, 116.8540], // Barat-Daya
-  [-1.1410, 116.8720], // Timur-Laut
+  [-1.1570, 116.8540],
+  [-1.1410, 116.8720],
 ];
 
 // ============================================================
@@ -35,6 +34,7 @@ const STATUS_OPTIONS = [
   { value: "menunggu", label: "⏳ Menunggu" },
   { value: "diproses", label: "🔄 Diproses" },
   { value: "selesai", label: "✅ Selesai" },
+  { value: "ditemukan", label: "🎉 Ditemukan" },
 ];
 
 // ============================================================
@@ -77,6 +77,9 @@ function MapBoundsEnforcer() {
 
 export default function PetaSebaranPage() {
   const navigate = useNavigate();
+  const currentUser = getUser();
+  const isAdmin = currentUser?.role === "admin";
+
   const [reports, setReports] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -86,22 +89,31 @@ export default function PetaSebaranPage() {
   const [activeCategories, setActiveCategories] = useState(new Set());
   const [statusFilter, setStatusFilter] = useState("");
 
-  // Load categories on mount
+  // Load categories on mount — sekaligus tentukan ID kehilangan
   useEffect(() => {
     fetchCategories().then((cats) => {
       setCategories(cats);
-      setActiveCategories(new Set(cats.map((c) => c.nama_kategori)));
+      if (isAdmin) {
+        setActiveCategories(new Set(cats.map((c) => c.nama_kategori)));
+      } else {
+        // User only sees Kehilangan
+        setActiveCategories(new Set(["Kehilangan"]));
+      }
     });
-  }, []);
+  }, [isAdmin]);
 
   // Load map reports
   const loadReports = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const data = await fetchMapReports({
-        status: statusFilter || undefined,
-      });
+      const params = {};
+      if (statusFilter) params.status = statusFilter;
+      // Tidak ada filter user_id — ambil semua laporan dari semua user
+      // Filter kategori dilakukan client-side via activeCategories
+      // Untuk user: backend mengembalikan semua laporan yg punya koordinat,
+      // lalu activeCategories akan menyaring hanya "Kehilangan"
+      const data = await fetchMapReports(params);
       setReports(data);
     } catch (err) {
       setError(err.message || "Gagal memuat data peta");
@@ -128,7 +140,7 @@ export default function PetaSebaranPage() {
     return counts;
   }, [reports]);
 
-  // Toggle category filter
+  // Toggle category filter (admin only)
   const toggleCategory = (catName) => {
     setActiveCategories((prev) => {
       const next = new Set(prev);
@@ -150,17 +162,50 @@ export default function PetaSebaranPage() {
     });
   };
 
+  // Determine where to navigate on detail click
+  const handleDetailClick = (report) => {
+    if (isAdmin) {
+      navigate(`/laporan/${report.id}`);
+    } else {
+      // User: if own report → detail laporan; else → detail kehilangan publik
+      if (currentUser?.id === report.user_id) {
+        navigate(`/laporan/${report.id}`);
+      } else {
+        navigate(`/kehilangan/${report.id}`);
+      }
+    }
+  };
+
+  // Visible categories for filter bar
+  const visibleCategories = isAdmin
+    ? categories
+    : categories.filter((c) => c.nama_kategori === "Kehilangan");
+
   return (
     <div className="page">
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "1.5rem" }}>
         {/* Header */}
         <div style={{ marginBottom: "1.25rem" }}>
           <h1 style={{ fontSize: "1.75rem", fontWeight: 800, display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            🗺️ Peta Sebaran Laporan
+            🗺️ Peta Sebaran {isAdmin ? "Laporan" : "Kehilangan"}
           </h1>
           <p style={{ color: "var(--text-muted)", marginTop: "0.25rem" }}>
-            Visualisasi lokasi laporan di area kampus Institut Teknologi Kalimantan
+            {isAdmin
+              ? "Visualisasi semua laporan di area kampus ITK"
+              : "Semua laporan kehilangan barang dari seluruh civitas kampus ITK"
+            }
           </p>
+          {!isAdmin && (
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: "0.5rem",
+              marginTop: "0.5rem", background: "#ede9fe", color: "#7c3aed",
+              padding: "0.375rem 0.875rem", borderRadius: "var(--radius-full)",
+              fontSize: "0.8rem", fontWeight: 600,
+            }}>
+              <span>ℹ️</span>
+              <span>Klik marker untuk melihat detail &amp; melaporkan penemuan</span>
+            </div>
+          )}
         </div>
 
         {/* Filter Bar */}
@@ -172,9 +217,9 @@ export default function PetaSebaranPage() {
           flexWrap: "wrap",
           padding: "1rem 1.25rem",
         }}>
-          {/* Category toggles */}
+          {/* Category toggles (admin: all, user: only Kehilangan) */}
           <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-            {categories.map((cat) => {
+            {visibleCategories.map((cat) => {
               const config = CATEGORY_CONFIG[cat.nama_kategori] || { color: "#6b7280", icon: "📌", bg: "#f1f5f9" };
               const isActive = activeCategories.has(cat.nama_kategori);
               const count = categoryCounts[cat.nama_kategori] || 0;
@@ -182,7 +227,7 @@ export default function PetaSebaranPage() {
               return (
                 <button
                   key={cat.id}
-                  onClick={() => toggleCategory(cat.nama_kategori)}
+                  onClick={() => isAdmin ? toggleCategory(cat.nama_kategori) : null}
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
@@ -194,7 +239,7 @@ export default function PetaSebaranPage() {
                     color: isActive ? config.color : "var(--text-muted)",
                     fontWeight: 600,
                     fontSize: "0.8125rem",
-                    cursor: "pointer",
+                    cursor: isAdmin ? "pointer" : "default",
                     fontFamily: "inherit",
                     transition: "var(--transition)",
                     opacity: isActive ? 1 : 0.5,
@@ -311,9 +356,13 @@ export default function PetaSebaranPage() {
                           {(CATEGORY_CONFIG[report.kategori_nama]?.icon || "📌") + " " + report.kategori_nama}
                         </span>
                         <span className={`badge badge-${report.status}`}>
-                          {report.status === "menunggu" ? "⏳" : report.status === "diproses" ? "🔄" : "✅"}{" "}
+                          {report.status === "menunggu" ? "⏳" : report.status === "diproses" ? "🔄" : report.status === "ditemukan" ? "🎉" : "✅"}{" "}
                           {report.status.charAt(0).toUpperCase() + report.status.slice(1)}
                         </span>
+                        {/* Badge "Milik Anda" jika laporan sendiri */}
+                        {!isAdmin && currentUser?.id === report.user_id && (
+                          <span className="badge" style={{ background: "var(--primary)", color: "white" }}>Milik Anda</span>
+                        )}
                       </div>
 
                       {/* Title */}
@@ -339,7 +388,7 @@ export default function PetaSebaranPage() {
 
                       {/* Action */}
                       <button
-                        onClick={() => navigate(`/laporan/${report.id}`)}
+                        onClick={() => handleDetailClick(report)}
                         style={{
                           width: "100%",
                           padding: "0.5rem",
@@ -353,7 +402,10 @@ export default function PetaSebaranPage() {
                           fontFamily: "inherit",
                         }}
                       >
-                        Lihat Detail →
+                        {!isAdmin && currentUser?.id !== report.user_id
+                          ? "📦 Saya Menemukan Ini →"
+                          : "Lihat Detail →"
+                        }
                       </button>
                     </div>
                   </Popup>
@@ -379,20 +431,22 @@ export default function PetaSebaranPage() {
             <div style={{ fontWeight: 700, marginBottom: "0.5rem", color: "var(--text-primary)", fontSize: "0.6875rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>
               Legenda
             </div>
-            {Object.entries(CATEGORY_CONFIG).map(([name, config]) => (
-              <div key={name} style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.25rem" }}>
-                <div style={{
-                  width: 10,
-                  height: 10,
-                  borderRadius: "50%",
-                  background: config.color,
-                  flexShrink: 0,
-                }} />
-                <span style={{ color: "var(--text-secondary)" }}>
-                  {name} ({categoryCounts[name] || 0})
-                </span>
-              </div>
-            ))}
+            {Object.entries(CATEGORY_CONFIG)
+              .filter(([name]) => isAdmin || name === "Kehilangan")
+              .map(([name, config]) => (
+                <div key={name} style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.25rem" }}>
+                  <div style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: "50%",
+                    background: config.color,
+                    flexShrink: 0,
+                  }} />
+                  <span style={{ color: "var(--text-secondary)" }}>
+                    {name} ({categoryCounts[name] || 0})
+                  </span>
+                </div>
+              ))}
           </div>
         </div>
       </div>

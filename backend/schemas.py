@@ -337,8 +337,11 @@ class DashboardStats(BaseModel):
     menunggu: int
     diproses: int
     selesai: int
+    ditemukan: int = 0
     kategori_stats: dict
     prioritas_stats: dict
+    total_users: int = 0
+    active_users: int = 0
 
 
 # ============================================================
@@ -356,3 +359,139 @@ class StatusLogResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ============================================================
+# KEHILANGAN PUBLIC SCHEMAS
+# ============================================================
+
+class KehilanganReportResponse(BaseModel):
+    """Schema untuk daftar kehilangan publik — termasuk nama pelapor."""
+    id: int
+    judul: str
+    deskripsi: str
+    lokasi: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    tanggal_kejadian: Optional[date] = None
+    status: str
+    created_at: datetime
+    pelapor_nama: str
+    pelapor_id: int
+
+    class Config:
+        from_attributes = True
+
+
+class KehilanganListResponse(BaseModel):
+    """Schema untuk response list kehilangan publik."""
+    total: int
+    reports: List[KehilanganReportResponse]
+
+
+class PublicReportDetailResponse(BaseModel):
+    """Schema untuk detail laporan kehilangan publik (termasuk nama pelapor & found claims)."""
+    id: int
+    judul: str
+    deskripsi: str
+    lokasi: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    tanggal_kejadian: Optional[date] = None
+    status: str
+    created_at: datetime
+    pelapor_nama: str
+    pelapor_id: int
+    locations: List[ReportLocationResponse] = []
+    found_claims: List["FoundClaimResponse"] = []
+
+    class Config:
+        from_attributes = True
+
+
+# ============================================================
+# FOUND CLAIM SCHEMAS
+# ============================================================
+
+class FoundClaimResponse(BaseModel):
+    """Schema untuk response klaim menemukan barang."""
+    id: int
+    report_id: int
+    user_id: int
+    deskripsi: str
+    bukti_url: Optional[str] = None
+    status: str
+    created_at: datetime
+    user_nama: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ============================================================
+# ADMIN USER MANAGEMENT SCHEMAS
+# ============================================================
+
+class AdminCreateUser(BaseModel):
+    """Schema untuk admin membuat user baru dengan role custom."""
+    email: str = Field(..., min_length=6, max_length=255, examples=["newuser@student.itk.ac.id"])
+    nama: str = Field(..., min_length=2, max_length=100, examples=["Nama Lengkap"])
+    password: str = Field(..., min_length=8, max_length=64, examples=["Cloud@123"])
+    no_hp: Optional[str] = Field(None, max_length=20, examples=["08123456789"])
+    role: str = Field("user", examples=["user", "admin"])
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        return normalize_and_validate_email(value)
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, value: str) -> str:
+        if value not in ("user", "admin"):
+            raise ValueError("Role harus 'user' atau 'admin'")
+        return value
+
+
+class UserUpdate(BaseModel):
+    """Schema untuk admin mengupdate data user."""
+    nama: Optional[str] = Field(None, min_length=2, max_length=100)
+    email: Optional[str] = Field(None, min_length=6, max_length=255)
+    no_hp: Optional[str] = Field(None, max_length=20)
+    role: Optional[str] = Field(None, examples=["user", "admin"])
+    is_active: Optional[bool] = None
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        if value is not None:
+            return normalize_and_validate_email(value)
+        return value
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, value: str) -> str:
+        if value is not None and value not in ("user", "admin"):
+            raise ValueError("Role harus 'user' atau 'admin'")
+        return value
+
+
+class AdminUserResponse(BaseModel):
+    """Schema untuk response user di admin panel."""
+    id: int
+    email: str
+    nama: str
+    role: str
+    no_hp: Optional[str] = None
+    is_active: bool
+    created_at: datetime
+    total_reports: int = 0
+
+    class Config:
+        from_attributes = True
+
+
+class AdminUserListResponse(BaseModel):
+    """Schema untuk response list user admin."""
+    total: int
+    users: List[AdminUserResponse]

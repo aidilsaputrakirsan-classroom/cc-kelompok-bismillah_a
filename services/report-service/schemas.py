@@ -93,6 +93,24 @@ class ReportAttachmentResponse(BaseModel):
 
     class Config:
         from_attributes = True
+# ============================================================
+# FOUND CLAIM SCHEMAS (diletakkan sebelum ReportResponse agar bisa dipakai)
+# ============================================================
+
+class FoundClaimResponse(BaseModel):
+    """Schema untuk response klaim penemuan barang."""
+    id: int
+    report_id: int
+    claimant_user_id: int
+    user_nama: str = ""          # diisi secara manual dari auth service data
+    deskripsi: str
+    bukti_url: Optional[str] = None
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
 
 
 class ReportResponse(BaseModel):
@@ -117,6 +135,7 @@ class ReportResponse(BaseModel):
     category: Optional[CategoryResponse] = None
     locations: List[ReportLocationResponse] = []
     attachments: List[ReportAttachmentResponse] = []
+    found_claims: List[FoundClaimResponse] = []
 
     class Config:
         from_attributes = True
@@ -135,6 +154,7 @@ class ReportListResponse(BaseModel):
 class MapReportResponse(BaseModel):
     """Schema ringan untuk peta sebaran."""
     id: int
+    user_id: int
     judul: str
     lokasi: Optional[str] = None
     latitude: float
@@ -252,6 +272,7 @@ class DashboardStats(BaseModel):
     menunggu: int
     diproses: int
     selesai: int
+    ditemukan: int = 0
     kategori_stats: dict
     prioritas_stats: dict
 
@@ -295,3 +316,42 @@ class StatusLogResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+
+# ============================================================
+# KEHILANGAN PUBLIC SCHEMAS
+# ============================================================
+
+class KehilanganPublicResponse(BaseModel):
+    """Schema untuk respons publik laporan kehilangan (dengan nama pelapor & found_claims)."""
+    id: int
+    judul: str
+    deskripsi: str
+    lokasi: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    tanggal_kejadian: Optional[date] = None
+    status: str
+    prioritas: str
+    anonim: bool
+    pelapor_id: int               # user_id pemilik laporan
+    pelapor_nama: str = ""        # nama pelapor (dari auth service atau cache)
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    category: Optional[CategoryResponse] = None
+    found_claims: List[FoundClaimResponse] = []
+
+    class Config:
+        from_attributes = True
+
+
+class KehilanganPublicListResponse(BaseModel):
+    """Schema untuk list laporan kehilangan publik."""
+    total: int
+    reports: List[KehilanganPublicResponse]
+
+
+# Resolve forward references
+ReportResponse.model_rebuild()
+KehilanganPublicResponse.model_rebuild()

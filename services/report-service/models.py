@@ -38,6 +38,7 @@ class Report(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     user_id = Column(Integer, nullable=False)  # Reference ke user di auth_db (BUKAN FK!)
+    pelapor_nama = Column(String(100), nullable=True)   # Nama pelapor disimpan saat dibuat
     judul = Column(String(255), nullable=False)
     deskripsi = Column(Text, nullable=False)
     kategori_id = Column(Integer, ForeignKey("categories.id"), nullable=False)
@@ -64,6 +65,7 @@ class Report(Base):
     comments = relationship("Comment", back_populates="report", cascade="all, delete-orphan")
     assignments = relationship("ReportAssignment", back_populates="report", cascade="all, delete-orphan")
     feedbacks = relationship("Feedback", back_populates="report", cascade="all, delete-orphan")
+    found_claims = relationship("FoundClaim", back_populates="report", cascade="all, delete-orphan")
 
 
 # =========================
@@ -189,3 +191,21 @@ class ReportAssignment(Base):
 
     report = relationship("Report", back_populates="assignments")
     unit = relationship("Unit", back_populates="assignments")
+
+
+# =========================
+# 11. FOUND CLAIMS
+# =========================
+class FoundClaim(Base):
+    """Klaim 'Saya Menemukan Barang Ini' dari user lain beserta bukti."""
+    __tablename__ = "found_claims"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    report_id = Column(Integer, ForeignKey("reports.id"), nullable=False)
+    claimant_user_id = Column(Integer, nullable=False)  # Reference ke user di auth_db
+    deskripsi = Column(Text, nullable=False)
+    bukti_url = Column(Text, nullable=True)   # URL/path foto bukti
+    status = Column(String(20), default="pending")   # pending / accepted / rejected
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    report = relationship("Report", back_populates="found_claims")

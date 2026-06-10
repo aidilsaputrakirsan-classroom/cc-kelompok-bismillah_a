@@ -120,6 +120,8 @@ services:
         condition: service_healthy
     networks:
       - laporin_ms_net
+    volumes:
+      - report_uploads:/app/uploads
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')"]
       interval: 10s
@@ -152,7 +154,7 @@ services:
       - auth-service
       - report-service
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:80/"]
       interval: 15s
       timeout: 5s
       retries: 3
@@ -187,7 +189,7 @@ services:
     networks:
       - laporin_ms_net
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:80/health"]
       interval: 15s
       timeout: 5s
       retries: 3
@@ -209,6 +211,8 @@ volumes:
     name: laporin-auth-db-data
   report_db_data:
     name: laporin-report-db-data
+  report_uploads:
+    name: laporin-report-uploads
 
 # ================================
 # NETWORKS

@@ -10,7 +10,7 @@ from passlib.context import CryptContext
 from models import (
     User, Category, Report, ReportLocation, ReportAttachment,
     ReportStatusLog, Comment, Notification, Feedback, Unit,
-    ReportAssignment
+    ReportAssignment, FoundClaim
 )
 from schemas import (
     UserCreate, ReportCreate, ReportUpdate, ReportLocationCreate,
@@ -490,6 +490,7 @@ def get_dashboard_stats(db: Session) -> dict:
     menunggu = db.query(Report).filter(Report.status == "menunggu").count()
     diproses = db.query(Report).filter(Report.status == "diproses").count()
     selesai = db.query(Report).filter(Report.status == "selesai").count()
+    ditemukan = db.query(Report).filter(Report.status == "ditemukan").count()
 
     # Statistik per kategori
     kategori_stats = {}
@@ -504,13 +505,20 @@ def get_dashboard_stats(db: Session) -> dict:
         "rendah": db.query(Report).filter(Report.prioritas == "rendah").count(),
     }
 
+    # User stats
+    total_users = db.query(User).filter(User.role == "user").count()
+    active_users = db.query(User).filter(User.role == "user", User.is_active == True).count()
+
     return {
         "total_laporan": total,
         "menunggu": menunggu,
         "diproses": diproses,
         "selesai": selesai,
+        "ditemukan": ditemukan,
         "kategori_stats": kategori_stats,
         "prioritas_stats": prioritas_stats,
+        "total_users": total_users,
+        "active_users": active_users,
     }
 
 
@@ -572,3 +580,487 @@ def delete_report(db: Session, report_id: int, user_id: int) -> tuple:
     db.delete(report)
     db.commit()
     return True, None
+
+
+# ============================================================
+# KEHILANGAN PUBLIC CRUD
+# ============================================================
+
+def get_kehilangan_reports(
+    db: Session,
+    skip: int = 0,
+    limit: int = 20,
+    search: str | None = None,
+    status: str | None = None,
+) -> dict:
+    """
+    Ambil semua laporan kehilangan dari semua user (publik untuk user login).
+    Termasuk nama pelapor.
+    """
+    query = db.query(Report).options(
+        joinedload(Report.category),
+        joinedload(Report.user),
+    ).join(Report.category).filter(
+        Category.nama_kategori == "Kehilangan",
+    )
+
+    if status:
+        query = query.filter(Report.status == status)
+
+    if search:
+        query = query.filter(
+            or_(
+                Report.judul.ilike(f"%{search}%"),
+                Report.deskripsi.ilike(f"%{search}%"),
+                Report.lokasi.ilike(f"%{search}%"),
+            )
+        )
+
+    total = query.count()
+    reports = query.order_by(Report.created_at.desc()).offset(skip).limit(limit).all()
+
+    return {
+        "total": total,
+        "reports": [
+            {
+                "id": r.id,
+                "judul": r.judul,
+                "deskripsi": r.deskripsi,
+                "lokasi": r.lokasi,
+                "latitude": r.latitude,
+                "longitude": r.longitude,
+                "tanggal_kejadian": r.tanggal_kejadian,
+                "status": r.status,
+                "created_at": r.created_at,
+                "pelapor_nama": r.user.nama if r.user else "Anonim",
+                "pelapor_id": r.user_id,
+            }
+            for r in reports
+        ],
+    }
+
+
+def get_public_report(db: Session, report_id: int) -> dict | None:
+    """
+    Ambil detail laporan kehilangan publik (termasuk nama pelapor, locations, dan found claims).
+    Hanya untuk laporan kategori Kehilangan.
+    """
+    report = db.query(Report).options(
+        joinedload(Report.category),
+        joinedload(Report.user),
+        joinedload(Report.locations),
+        joinedload(Report.found_claims),
+    ).filter(Report.id == report_id).first()
+
+    if not report:
+        return None
+
+    # Hanya kehilangan yang bisa diakses publik
+    if report.category and report.category.nama_kategori != "Kehilangan":
+        return None
+
+    # Build found claims with user names
+    claims = []
+    for claim in (report.found_claims or []):
+        claim_user = db.query(User).filter(User.id == claim.user_id).first()
+        claims.append({
+            "id": claim.id,
+            "report_id": claim.report_id,
+            "user_id": claim.user_id,
+            "deskripsi": claim.deskripsi,
+            "bukti_url": f"/uploads/{claim.bukti_path}" if claim.bukti_path else None,
+            "status": claim.status,
+            "created_at": claim.created_at,
+            "user_nama": claim_user.nama if claim_user else "Anonim",
+        })
+
+    return {
+        "id": report.id,
+        "judul": report.judul,
+        "deskripsi": report.deskripsi,
+        "lokasi": report.lokasi,
+        "latitude": report.latitude,
+        "longitude": report.longitude,
+        "tanggal_kejadian": report.tanggal_kejadian,
+        "status": report.status,
+        "created_at": report.created_at,
+        "pelapor_nama": report.user.nama if report.user else "Anonim",
+        "pelapor_id": report.user_id,
+        "locations": [
+            {
+                "id": loc.id,
+                "report_id": loc.report_id,
+                "latitude": loc.latitude,
+                "longitude": loc.longitude,
+                "keterangan": loc.keterangan,
+                "created_at": loc.created_at,
+            }
+            for loc in (report.locations or [])
+        ],
+        "found_claims": claims,
+    }
+
+
+# ============================================================
+# FOUND CLAIM CRUD
+# ============================================================
+
+def create_found_claim(
+    db: Session,
+    report_id: int,
+    user_id: int,
+    deskripsi: str,
+    bukti_path: str | None = None,
+) -> "FoundClaim":
+    """User lain mengklaim menemukan barang dengan bukti."""
+    claim = FoundClaim(
+        report_id=report_id,
+        user_id=user_id,
+        deskripsi=deskripsi,
+        bukti_path=bukti_path,
+        status="pending",
+    )
+    db.add(claim)
+    db.commit()
+    db.refresh(claim)
+
+    # Notifikasi ke pemilik laporan — sertakan nama penemu
+    report = db.query(Report).filter(Report.id == report_id).first()
+    finder = db.query(User).filter(User.id == user_id).first()
+    finder_name = finder.nama if finder else "Seseorang"
+    if report:
+        notif = Notification(
+            user_id=report.user_id,
+            pesan=(
+                f"📦 {finder_name} mengklaim menemukan barang Anda pada laporan "
+                f"'{report.judul}'. Silakan buka laporan dan konfirmasi klaim tersebut."
+            ),
+        )
+        db.add(notif)
+        db.commit()
+
+    return claim
+
+
+def confirm_found_claim(
+    db: Session,
+    claim_id: int,
+    report_id: int,
+    owner_id: int,
+) -> tuple:
+    """
+    Pemilik laporan mengkonfirmasi klaim bahwa barang memang ditemukan.
+    Status klaim → accepted, status laporan → ditemukan.
+    """
+    claim = db.query(FoundClaim).filter(
+        FoundClaim.id == claim_id,
+        FoundClaim.report_id == report_id,
+    ).first()
+    if not claim:
+        return None, "claim_not_found"
+
+    report = db.query(Report).filter(
+        Report.id == report_id,
+        Report.user_id == owner_id,
+    ).first()
+    if not report:
+        return None, "not_owner"
+
+    # Accept this claim
+    claim.status = "accepted"
+
+    # Reject all other pending claims
+    other_claims = db.query(FoundClaim).filter(
+        FoundClaim.report_id == report_id,
+        FoundClaim.id != claim_id,
+        FoundClaim.status == "pending",
+    ).all()
+    for oc in other_claims:
+        oc.status = "rejected"
+
+    # Update report status
+    old_status = report.status
+    report.status = "ditemukan"
+
+    # Log status change
+    log = ReportStatusLog(
+        report_id=report_id,
+        status="ditemukan",
+        changed_by=owner_id,
+        catatan=f"Barang dikonfirmasi ditemukan oleh user lain (klaim #{claim_id}). Status sebelumnya: '{old_status}'",
+    )
+    db.add(log)
+
+    # Notifikasi ke penemu (yang klaimnya diterima)
+    notif_finder = Notification(
+        user_id=claim.user_id,
+        pesan=f"Klaim Anda pada laporan '{report.judul}' telah dikonfirmasi! Terima kasih.",
+    )
+    db.add(notif_finder)
+
+    # Notifikasi ke admin
+    admins = db.query(User).filter(User.role == "admin").all()
+    for admin in admins:
+        notif_admin = Notification(
+            user_id=admin.id,
+            pesan=f"Laporan '{report.judul}' — barang telah ditemukan (dikonfirmasi oleh pemilik).",
+        )
+        db.add(notif_admin)
+
+    # Notifikasi ke user lain yang klaimnya ditolak
+    for oc in other_claims:
+        notif_rejected = Notification(
+            user_id=oc.user_id,
+            pesan=f"Klaim Anda pada laporan '{report.judul}' tidak diterima — barang sudah ditemukan oleh orang lain.",
+        )
+        db.add(notif_rejected)
+
+    db.commit()
+    return claim, None
+
+
+def reject_found_claim(
+    db: Session,
+    claim_id: int,
+    report_id: int,
+    owner_id: int,
+) -> tuple:
+    """Pemilik laporan menolak klaim."""
+    claim = db.query(FoundClaim).filter(
+        FoundClaim.id == claim_id,
+        FoundClaim.report_id == report_id,
+    ).first()
+    if not claim:
+        return None, "claim_not_found"
+
+    report = db.query(Report).filter(
+        Report.id == report_id,
+        Report.user_id == owner_id,
+    ).first()
+    if not report:
+        return None, "not_owner"
+
+    claim.status = "rejected"
+    db.commit()
+
+    # Notifikasi ke penemu
+    notif = Notification(
+        user_id=claim.user_id,
+        pesan=f"Klaim Anda pada laporan '{report.judul}' ditolak oleh pemilik barang.",
+    )
+    db.add(notif)
+    db.commit()
+
+    return claim, None
+
+
+def mark_report_found_by_owner(
+    db: Session,
+    report_id: int,
+    owner_id: int,
+) -> tuple:
+    """
+    Pemilik laporan menandai barangnya sudah ditemukan sendiri.
+    Bisa dilakukan dari status menunggu atau diproses.
+    """
+    report = db.query(Report).filter(
+        Report.id == report_id,
+        Report.user_id == owner_id,
+    ).first()
+    if not report:
+        return None, "not_found"
+
+    if report.status == "ditemukan":
+        return None, "already_found"
+    if report.status == "selesai":
+        return None, "already_closed"
+
+    # Cek kategori kehilangan
+    category = db.query(Category).filter(Category.id == report.kategori_id).first()
+    if not category or category.nama_kategori != "Kehilangan":
+        return None, "not_kehilangan"
+
+    old_status = report.status
+    report.status = "ditemukan"
+
+    # Log
+    log = ReportStatusLog(
+        report_id=report_id,
+        status="ditemukan",
+        changed_by=owner_id,
+        catatan=f"Pemilik menandai barang sudah ditemukan sendiri. Status sebelumnya: '{old_status}'",
+    )
+    db.add(log)
+
+    # Notifikasi ke admin
+    admins = db.query(User).filter(User.role == "admin").all()
+    for admin in admins:
+        notif = Notification(
+            user_id=admin.id,
+            pesan=f"Laporan '{report.judul}' — pemilik menandai barang sudah ditemukan sendiri.",
+        )
+        db.add(notif)
+
+    # Reject semua pending claims & notifikasi
+    pending_claims = db.query(FoundClaim).filter(
+        FoundClaim.report_id == report_id,
+        FoundClaim.status == "pending",
+    ).all()
+    for pc in pending_claims:
+        pc.status = "rejected"
+        notif_rejected = Notification(
+            user_id=pc.user_id,
+            pesan=f"Klaim Anda pada laporan '{report.judul}' tidak diperlukan lagi — pemilik sudah menemukan barangnya sendiri.",
+        )
+        db.add(notif_rejected)
+
+    db.commit()
+    db.refresh(report)
+    return report, None
+
+
+# ============================================================
+# ADMIN USER MANAGEMENT CRUD
+# ============================================================
+
+def get_all_users(
+    db: Session,
+    skip: int = 0,
+    limit: int = 50,
+    search: str | None = None,
+    role: str | None = None,
+) -> dict:
+    """Ambil semua user untuk admin panel."""
+    query = db.query(User)
+
+    if search:
+        query = query.filter(
+            or_(
+                User.nama.ilike(f"%{search}%"),
+                User.email.ilike(f"%{search}%"),
+            )
+        )
+
+    if role:
+        query = query.filter(User.role == role)
+
+    total = query.count()
+    users = query.order_by(User.created_at.desc()).offset(skip).limit(limit).all()
+
+    result = []
+    for u in users:
+        total_reports = db.query(Report).filter(Report.user_id == u.id).count()
+        result.append({
+            "id": u.id,
+            "email": u.email,
+            "nama": u.nama,
+            "role": u.role,
+            "no_hp": u.no_hp,
+            "is_active": u.is_active,
+            "created_at": u.created_at,
+            "total_reports": total_reports,
+        })
+
+    return {"total": total, "users": result}
+
+
+def toggle_user_active(db: Session, user_id: int) -> User | None:
+    """Toggle status aktif/nonaktif user."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return None
+    user.is_active = not user.is_active
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def reset_user_password(db: Session, user_id: int) -> User | None:
+    """Reset password user ke default: Reset@123."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return None
+    user.hashed_password = get_password_hash("Reset@123")
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def create_user_by_admin(
+    db: Session,
+    user_data,
+) -> User | None:
+    """
+    Admin membuat user baru dengan role custom.
+    Return None jika email sudah terdaftar.
+    """
+    existing = db.query(User).filter(User.email == user_data.email).first()
+    if existing:
+        return None
+    user = User(
+        email=user_data.email,
+        nama=user_data.nama,
+        hashed_password=get_password_hash(user_data.password),
+        no_hp=user_data.no_hp,
+        role=user_data.role,
+        is_active=True,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def update_user_by_admin(
+    db: Session,
+    user_id: int,
+    user_data,
+    admin_id: int,
+) -> tuple:
+    """
+    Admin mengupdate data user.
+    Returns: (user, None) jika sukses, atau (None, error_code) jika gagal.
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return None, "not_found"
+
+    # Cek duplikat email jika email diubah
+    if user_data.email and user_data.email != user.email:
+        dup = db.query(User).filter(User.email == user_data.email).first()
+        if dup:
+            return None, "email_taken"
+
+    # Cegah admin menonaktifkan atau mengubah role dirinya sendiri
+    if user.id == admin_id:
+        if user_data.is_active is False:
+            return None, "cannot_deactivate_self"
+        if user_data.role and user_data.role != "admin":
+            return None, "cannot_change_own_role"
+
+    update_data = user_data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(user, field, value)
+
+    db.commit()
+    db.refresh(user)
+    return user, None
+
+
+def delete_user(
+    db: Session,
+    user_id: int,
+    admin_id: int,
+) -> tuple:
+    """
+    Admin menghapus user secara permanen.
+    Returns: (True, None) jika sukses, atau (False, error_code) jika gagal.
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return False, "not_found"
+    if user.id == admin_id:
+        return False, "cannot_delete_self"
+    db.delete(user)
+    db.commit()
+    return True, None

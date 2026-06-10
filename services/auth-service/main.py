@@ -24,6 +24,7 @@ from models import User
 from schemas import (
     UserCreate, UserResponse, LoginRequest,
     TokenResponse, TokenVerifyResponse,
+    AdminCreateUser, UserUpdate,
     normalize_and_validate_email,
 )
 
@@ -170,7 +171,7 @@ def login(login_data: LoginRequest, db: Session = Depends(get_db)):
     if not user or not verify_password(login_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Email atau password salah")
 
-    token = create_access_token(data={"sub": str(user.id)})
+    token = create_access_token(data={"sub": str(user.id), "nama": user.nama, "role": user.role})
     return {"access_token": token, "token_type": "bearer", "user": user}
 
 
@@ -189,7 +190,7 @@ def login_swagger(
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Email atau password salah")
 
-    token = create_access_token(data={"sub": str(user.id)})
+    token = create_access_token(data={"sub": str(user.id), "nama": user.nama, "role": user.role})
     return {"access_token": token, "token_type": "bearer"}
 
 
@@ -221,3 +222,172 @@ def verify_token(authorization: str = Header(...)):
         nama=payload.get("nama", ""),
         role=payload.get("role", "user"),
     )
+
+
+# ==================== ADMIN USER MANAGEMENT ====================
+
+def require_admin(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+) -> User:
+    """Dependency: pastikan user yang request adalah admin."""
+    payload = decode_token(token)
+    user_id = payload.get("sub")
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="Token tidak valid")
+    try:
+        user_id = int(user_id)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=401, detail="Token tidak valid")
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        raise HTTPException(status_code=401, detail="User tidak ditemukan")
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="Akun tidak aktif")
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Akses ditolak: hanya admin")
+    return user
+
+
+@app.get("/admin/users", response_model=list[UserResponse])
+def list_all_users(
+    skip: int = 0,
+    limit: int = 50,
+    search: Optional[str] = None,
+    role: Optional[str] = None,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Ambil semua user. **Hanya admin.**"""
+    query = db.query(User)
+    if search:
+        query = query.filter(
+            (User.nama.ilike(f"%{search}%")) | (User.email.ilike(f"%{search}%"))
+        )
+    if role:
+        query = query.filter(User.role == role)
+    return query.order_by(User.id).offset(skip).limit(limit).all()
+
+
+@app.patch("/admin/users/{user_id}/toggle-active", response_model=UserResponse)
+def toggle_user_active(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Aktifkan / nonaktifkan user. **Hanya admin.**"""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User tidak ditemukan")
+    if user.id == admin.id:
+        raise HTTPException(status_code=400, detail="Admin tidak bisa menonaktifkan diri sendiri")
+    user.is_active = not user.is_active
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@app.post("/admin/users/{user_id}/reset-password")
+def reset_user_password(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Reset password user ke 'Reset@123'. User wajib ganti setelah login. **Hanya admin.**"""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User tidak ditemukan")
+    DEFAULT_PASSWORD = "Reset@123"
+    user.hashed_password = hash_password(DEFAULT_PASSWORD)
+    db.commit()
+    return {
+        "message": f"Password user '{user.nama}' berhasil direset.",
+        "default_password": DEFAULT_PASSWORD,
+        "note": "Harap beritahukan password ini ke user dan minta ganti setelah login.",
+    }
+
+
+# ==================== ADMIN CRUD USER ====================
+
+@app.post("/admin/users", response_model=UserResponse, status_code=201)
+def admin_create_user(
+    user_data: AdminCreateUser,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Buat user baru oleh admin (bisa set role). **Hanya admin.**"""
+    existing = db.query(User).filter(User.email == user_data.email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Email sudah terdaftar")
+
+    user = User(
+        email=user_data.email,
+        nama=user_data.nama,
+        hashed_password=hash_password(user_data.password),
+        no_hp=user_data.no_hp,
+        role=user_data.role,
+        is_active=True,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@app.put("/admin/users/{user_id}", response_model=UserResponse)
+def admin_update_user(
+    user_id: int,
+    user_data: UserUpdate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Update data user (nama, email, no_hp, role, is_active). **Hanya admin.**"""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User tidak ditemukan")
+
+    # Cek duplikat email jika email diubah
+    if user_data.email and user_data.email != user.email:
+        dup = db.query(User).filter(User.email == user_data.email).first()
+        if dup:
+            raise HTTPException(status_code=400, detail="Email sudah digunakan user lain")
+
+    # Cegah admin menonaktifkan atau mengubah role dirinya sendiri
+    if user.id == admin.id:
+        if user_data.is_active is False:
+            raise HTTPException(status_code=400, detail="Admin tidak bisa menonaktifkan diri sendiri")
+        if user_data.role and user_data.role != "admin":
+            raise HTTPException(status_code=400, detail="Admin tidak bisa mengubah role dirinya sendiri")
+
+    if user_data.nama is not None:
+        user.nama = user_data.nama
+    if user_data.email is not None:
+        user.email = user_data.email
+    if user_data.no_hp is not None:
+        user.no_hp = user_data.no_hp
+    if user_data.role is not None:
+        user.role = user_data.role
+    if user_data.is_active is not None:
+        user.is_active = user_data.is_active
+
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@app.delete("/admin/users/{user_id}", status_code=204)
+def admin_delete_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Hapus user secara permanen. **Hanya admin. Admin tidak bisa hapus diri sendiri.**"""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User tidak ditemukan")
+    if user.id == admin.id:
+        raise HTTPException(status_code=400, detail="Admin tidak bisa menghapus diri sendiri")
+    db.delete(user)
+    db.commit()
+    return None
