@@ -81,8 +81,8 @@ def test_map_reports_filter_by_status(client, auth_headers):
     assert len(response.json()) == 0
 
 
-def test_map_reports_filter_by_kategori(client, auth_headers):
-    """Filter peta berdasarkan kategori."""
+def test_map_reports_filter_by_kategori(client, auth_headers, admin_headers):
+    """Filter peta berdasarkan kategori — harus pakai admin karena user biasa hanya lihat Kehilangan."""
     # Kehilangan (kategori_id=1)
     _create_report_with_location(client, auth_headers, judul="Laptop Hilang", kategori_id=1)
 
@@ -90,22 +90,22 @@ def test_map_reports_filter_by_kategori(client, auth_headers):
     _create_report_with_location(client, auth_headers, judul="AC Rusak", kategori_id=2,
                                   lat=-1.1500, lng=116.8630)
 
-    # Filter hanya Kehilangan
-    response = client.get("/reports/map?kategori_id=1", headers=auth_headers)
+    # Admin: filter hanya Kehilangan
+    response = client.get("/reports/map?kategori_id=1", headers=admin_headers)
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
     assert data[0]["kategori_nama"] == "Kehilangan"
 
-    # Filter hanya Fasilitas
-    response = client.get("/reports/map?kategori_id=2", headers=auth_headers)
+    # Admin: filter hanya Fasilitas
+    response = client.get("/reports/map?kategori_id=2", headers=admin_headers)
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
     assert data[0]["kategori_nama"] == "Fasilitas"
 
-    # Semua
-    response = client.get("/reports/map", headers=auth_headers)
+    # Admin: semua kategori
+    response = client.get("/reports/map", headers=admin_headers)
     assert len(response.json()) == 2
 
 
