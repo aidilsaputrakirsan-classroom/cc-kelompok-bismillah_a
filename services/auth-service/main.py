@@ -9,6 +9,7 @@ Microservice yang bertanggung jawab untuk:
 Disesuaikan dari backend monolith (auth.py + main.py auth endpoints + crud.py auth CRUD).
 """
 import os
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -27,6 +28,13 @@ from schemas import (
     AdminCreateUser, UserUpdate,
     normalize_and_validate_email,
 )
+from logging_config import setup_logging
+from logging_middleware import RequestLoggingMiddleware
+from metrics import metrics
+
+# Setup structured JSON logging
+setup_logging()
+logger = logging.getLogger(__name__)
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -46,6 +54,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Logging middleware — log setiap request + correlation ID + metrics
+app.add_middleware(RequestLoggingMiddleware)
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -129,6 +140,15 @@ def health_check():
         "status": "healthy",
         "service": "auth-service",
         "version": "2.0.0",
+    }
+
+
+@app.get("/metrics")
+def get_metrics():
+    """Return application metrics: request count, error rate, latency percentiles."""
+    return {
+        "service": "auth-service",
+        **metrics.get_metrics(),
     }
 
 
