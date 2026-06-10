@@ -21,6 +21,8 @@ from models import Base, User, Unit, Report
 from schemas import (
     # Auth
     UserCreate, UserResponse, LoginRequest, TokenResponse, normalize_and_validate_email,
+    # Admin user management
+    AdminCreateUser, UserUpdate,
     # Reports
     ReportCreate, ReportUpdate, ReportUserUpdate, ReportResponse, ReportListResponse,
     ReportLocationCreate, ReportLocationResponse,
@@ -154,7 +156,8 @@ def login(login_data: LoginRequest, db: Session = Depends(get_db)):
     user = crud.authenticate_user(db=db, email=login_data.email, password=login_data.password)
     if not user:
         raise HTTPException(status_code=401, detail="Email atau password salah")
-    token = create_access_token(data={"sub": str(user.id)})
+    # Sertakan nama & role di payload agar konsisten dengan auth-service
+    token = create_access_token(data={"sub": str(user.id), "nama": user.nama, "role": user.role})
     return {"access_token": token, "token_type": "bearer", "user": user}
 
 
@@ -171,7 +174,7 @@ def login_swagger(
     user = crud.authenticate_user(db=db, email=email, password=form_data.password)
     if not user:
         raise HTTPException(status_code=401, detail="Email atau password salah")
-    token = create_access_token(data={"sub": str(user.id)})
+    token = create_access_token(data={"sub": str(user.id), "nama": user.nama, "role": user.role})
     return {"access_token": token, "token_type": "bearer"}
 
 
@@ -353,8 +356,24 @@ def peta_sebaran(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Ambil laporan dengan koordinat untuk peta sebaran."""
-    return crud.get_map_reports(db=db, status=status, kategori_id=kategori_id)
+    """Ambil laporan dengan koordinat untuk peta sebaran.
+    - User biasa: hanya laporan Kehilangan (fasilitas & perundungan tersembunyi)
+    - Admin: semua laporan
+    """
+    if current_user.role == "admin":
+        # Admin melihat semua kategori
+        return crud.get_map_reports(db=db, status=status, kategori_id=kategori_id)
+    else:
+        # User hanya melihat laporan Kehilangan di peta
+        from models import Category
+        kehilangan_cat = db.query(Category).filter(
+            Category.nama_kategori == "Kehilangan"
+        ).first()
+        if kehilangan_cat:
+            return crud.get_map_reports(
+                db=db, status=status, kategori_id=kehilangan_cat.id
+            )
+        return []
 
 
 @app.get("/reports", response_model=ReportListResponse, tags=["Laporan"])
@@ -623,3 +642,52 @@ def reset_password_pengguna(
     if not user:
         raise HTTPException(status_code=404, detail="User tidak ditemukan")
     return {"message": f"Password user '{user.nama}' berhasil di-reset ke default (Reset@123)."}
+
+
+@app.post("/admin/users", response_model=UserResponse, status_code=201, tags=["Admin - Pengguna"])
+def buat_pengguna_oleh_admin(
+    user_data: AdminCreateUser,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Admin membuat user baru dengan role custom. Hanya admin."""
+    user = crud.create_user_by_admin(db=db, user_data=user_data)
+    if not user:
+        raise HTTPException(status_code=400, detail="Email sudah terdaftar")
+    return user
+
+
+@app.put("/admin/users/{user_id}", response_model=UserResponse, tags=["Admin - Pengguna"])
+def edit_pengguna_oleh_admin(
+    user_id: int,
+    user_data: UserUpdate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Admin mengupdate data user (nama, email, no_hp, role, is_active). Hanya admin."""
+    user, error = crud.update_user_by_admin(
+        db=db, user_id=user_id, user_data=user_data, admin_id=admin.id
+    )
+    if error == "not_found":
+        raise HTTPException(status_code=404, detail="User tidak ditemukan")
+    if error == "email_taken":
+        raise HTTPException(status_code=400, detail="Email sudah digunakan user lain")
+    if error == "cannot_deactivate_self":
+        raise HTTPException(status_code=400, detail="Admin tidak bisa menonaktifkan akun sendiri")
+    if error == "cannot_change_own_role":
+        raise HTTPException(status_code=400, detail="Admin tidak bisa mengubah role dirinya sendiri")
+    return user
+
+
+@app.delete("/admin/users/{user_id}", status_code=204, tags=["Admin - Pengguna"])
+def hapus_pengguna_oleh_admin(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Hapus user secara permanen. Admin tidak bisa hapus diri sendiri. Hanya admin."""
+    success, error = crud.delete_user(db=db, user_id=user_id, admin_id=admin.id)
+    if error == "not_found":
+        raise HTTPException(status_code=404, detail="User tidak ditemukan")
+    if error == "cannot_delete_self":
+        raise HTTPException(status_code=400, detail="Admin tidak bisa menghapus akun sendiri")

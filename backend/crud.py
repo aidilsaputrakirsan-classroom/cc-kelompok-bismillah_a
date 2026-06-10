@@ -984,3 +984,83 @@ def reset_user_password(db: Session, user_id: int) -> User | None:
     db.commit()
     db.refresh(user)
     return user
+
+
+def create_user_by_admin(
+    db: Session,
+    user_data,
+) -> User | None:
+    """
+    Admin membuat user baru dengan role custom.
+    Return None jika email sudah terdaftar.
+    """
+    existing = db.query(User).filter(User.email == user_data.email).first()
+    if existing:
+        return None
+    user = User(
+        email=user_data.email,
+        nama=user_data.nama,
+        hashed_password=get_password_hash(user_data.password),
+        no_hp=user_data.no_hp,
+        role=user_data.role,
+        is_active=True,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def update_user_by_admin(
+    db: Session,
+    user_id: int,
+    user_data,
+    admin_id: int,
+) -> tuple:
+    """
+    Admin mengupdate data user.
+    Returns: (user, None) jika sukses, atau (None, error_code) jika gagal.
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return None, "not_found"
+
+    # Cek duplikat email jika email diubah
+    if user_data.email and user_data.email != user.email:
+        dup = db.query(User).filter(User.email == user_data.email).first()
+        if dup:
+            return None, "email_taken"
+
+    # Cegah admin menonaktifkan atau mengubah role dirinya sendiri
+    if user.id == admin_id:
+        if user_data.is_active is False:
+            return None, "cannot_deactivate_self"
+        if user_data.role and user_data.role != "admin":
+            return None, "cannot_change_own_role"
+
+    update_data = user_data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(user, field, value)
+
+    db.commit()
+    db.refresh(user)
+    return user, None
+
+
+def delete_user(
+    db: Session,
+    user_id: int,
+    admin_id: int,
+) -> tuple:
+    """
+    Admin menghapus user secara permanen.
+    Returns: (True, None) jika sukses, atau (False, error_code) jika gagal.
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return False, "not_found"
+    if user.id == admin_id:
+        return False, "cannot_delete_self"
+    db.delete(user)
+    db.commit()
+    return True, None

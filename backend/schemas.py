@@ -432,6 +432,50 @@ class FoundClaimResponse(BaseModel):
 # ADMIN USER MANAGEMENT SCHEMAS
 # ============================================================
 
+class AdminCreateUser(BaseModel):
+    """Schema untuk admin membuat user baru dengan role custom."""
+    email: str = Field(..., min_length=6, max_length=255, examples=["newuser@student.itk.ac.id"])
+    nama: str = Field(..., min_length=2, max_length=100, examples=["Nama Lengkap"])
+    password: str = Field(..., min_length=8, max_length=64, examples=["Cloud@123"])
+    no_hp: Optional[str] = Field(None, max_length=20, examples=["08123456789"])
+    role: str = Field("user", examples=["user", "admin"])
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        return normalize_and_validate_email(value)
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, value: str) -> str:
+        if value not in ("user", "admin"):
+            raise ValueError("Role harus 'user' atau 'admin'")
+        return value
+
+
+class UserUpdate(BaseModel):
+    """Schema untuk admin mengupdate data user."""
+    nama: Optional[str] = Field(None, min_length=2, max_length=100)
+    email: Optional[str] = Field(None, min_length=6, max_length=255)
+    no_hp: Optional[str] = Field(None, max_length=20)
+    role: Optional[str] = Field(None, examples=["user", "admin"])
+    is_active: Optional[bool] = None
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        if value is not None:
+            return normalize_and_validate_email(value)
+        return value
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, value: str) -> str:
+        if value is not None and value not in ("user", "admin"):
+            raise ValueError("Role harus 'user' atau 'admin'")
+        return value
+
+
 class AdminUserResponse(BaseModel):
     """Schema untuk response user di admin panel."""
     id: int
