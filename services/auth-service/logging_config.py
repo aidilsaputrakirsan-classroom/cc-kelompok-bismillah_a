@@ -41,6 +41,22 @@ class JSONFormatter(logging.Formatter):
         if hasattr(record, "user_id"):
             log_entry["user_id"] = record.user_id
 
+        # ── Alert fields (Modul 14 — error alerting) ──
+        if hasattr(record, "alert"):
+            log_entry["alert"] = record.alert
+        if hasattr(record, "alert_type"):
+            log_entry["alert_type"] = record.alert_type
+        if hasattr(record, "error_rate_percent"):
+            log_entry["error_rate_percent"] = record.error_rate_percent
+        if hasattr(record, "error_count"):
+            log_entry["error_count"] = record.error_count
+        if hasattr(record, "total_requests_in_window"):
+            log_entry["total_requests_in_window"] = record.total_requests_in_window
+        if hasattr(record, "window_seconds"):
+            log_entry["window_seconds"] = record.window_seconds
+        if hasattr(record, "threshold_percent"):
+            log_entry["threshold_percent"] = record.threshold_percent
+
         # Tambah exception info jika ada
         if record.exc_info and record.exc_info[0] is not None:
             log_entry["exception"] = self.formatException(record.exc_info)
