@@ -67,12 +67,16 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             duration_ms,
         )
 
+        # ── Error alerting (Modul 14 — Lead Backend) ──
+        # Fire CRITICAL log jika error rate 1 menit terakhir melebihi threshold 10%
+        metrics.check_and_alert(logger)
+
         # Log request — skip health & metrics agar tidak terlalu noisy
         if request.url.path not in SKIP_LOG_PATHS:
             log_level = logging.WARNING if response.status_code >= 400 else logging.INFO
             logger.log(
                 log_level,
-                f"{request.method} {request.url.path} → {response.status_code} ({duration_ms}ms)",
+                f"{request.method} {request.url.path} -> {response.status_code} ({duration_ms}ms)",
                 extra={
                     "correlation_id": correlation_id,
                     "method": request.method,
@@ -85,3 +89,4 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         # Teruskan correlation ID di response header
         response.headers["X-Correlation-ID"] = correlation_id
         return response
+
