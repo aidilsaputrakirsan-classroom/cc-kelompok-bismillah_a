@@ -9,7 +9,11 @@ import DashboardPage from "./pages/DashboardPage";
 import BuatLaporanPage from "./pages/BuatLaporanPage";
 import DetailLaporanPage from "./pages/DetailLaporanPage";
 import AdminDashboardPage from "./pages/AdminDashboardPage";
+import AdminKelolaLaporanPage from "./pages/AdminKelolaLaporanPage";
+import AdminKelolaUsersPage from "./pages/AdminKelolaUsersPage";
 import PetaSebaranPage from "./pages/PetaSebaranPage";
+import DaftarKehilanganPage from "./pages/DaftarKehilanganPage";
+import DetailKehilanganPage from "./pages/DetailKehilanganPage";
 
 // ============================================================
 // ROUTE GUARDS
@@ -180,6 +184,20 @@ export default function App() {
           </RequireAuth>
         } />
 
+        {/* Protected — Kehilangan (public for all logged-in users) */}
+        <Route path="/kehilangan" element={
+          <RequireAuth>
+            <Navbar />
+            <DaftarKehilanganPage />
+          </RequireAuth>
+        } />
+        <Route path="/kehilangan/:id" element={
+          <RequireAuth>
+            <Navbar />
+            <DetailKehilanganPage />
+          </RequireAuth>
+        } />
+
         {/* Protected — Admin */}
         <Route path="/admin" element={
           <RequireAdmin>
@@ -190,7 +208,13 @@ export default function App() {
         <Route path="/admin/laporan" element={
           <RequireAdmin>
             <Navbar />
-            <AdminDashboardPage />
+            <AdminKelolaLaporanPage />
+          </RequireAdmin>
+        } />
+        <Route path="/admin/users" element={
+          <RequireAdmin>
+            <Navbar />
+            <AdminKelolaUsersPage />
           </RequireAdmin>
         } />
 

@@ -89,3 +89,60 @@ class TokenVerifyResponse(BaseModel):
     email: str
     nama: str
     role: str
+
+
+class AdminCreateUser(BaseModel):
+    """Schema untuk admin membuat user baru (bisa set role)."""
+    email: str = Field(..., min_length=6, max_length=255, examples=["user@student.itk.ac.id"])
+    nama: str = Field(..., min_length=2, max_length=100, examples=["Aidil Saputra"])
+    password: str = Field(..., min_length=8, max_length=64, examples=["Cloud@123"])
+    no_hp: Optional[str] = Field(None, max_length=20, examples=["08123456789"])
+    role: str = Field(default="user", pattern="^(user|admin)$")
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        return normalize_and_validate_email(value)
+
+    @field_validator("nama")
+    @classmethod
+    def validate_nama(cls, value: str) -> str:
+        normalized = value.strip()
+        if len(normalized) < 2:
+            raise ValueError("Nama minimal 2 karakter.")
+        return normalized
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_strength(cls, value: str) -> str:
+        if not PASSWORD_PATTERN.fullmatch(value):
+            raise ValueError(
+                "Password harus 8-64 karakter dan mengandung huruf besar, huruf kecil, angka, serta simbol."
+            )
+        return value
+
+
+class UserUpdate(BaseModel):
+    """Schema untuk admin mengupdate data user."""
+    nama: Optional[str] = Field(None, min_length=2, max_length=100)
+    email: Optional[str] = Field(None, min_length=6, max_length=255)
+    no_hp: Optional[str] = Field(None, max_length=20)
+    role: Optional[str] = Field(None, pattern="^(user|admin)$")
+    is_active: Optional[bool] = None
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        if value is None:
+            return value
+        return normalize_and_validate_email(value)
+
+    @field_validator("nama")
+    @classmethod
+    def validate_nama(cls, value: str) -> str:
+        if value is None:
+            return value
+        normalized = value.strip()
+        if len(normalized) < 2:
+            raise ValueError("Nama minimal 2 karakter.")
+        return normalized

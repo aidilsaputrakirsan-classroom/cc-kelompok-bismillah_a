@@ -1,4 +1,4 @@
-.PHONY: up down build logs ps clean restart lint test pr-check logs-auth logs-report logs-gateway shell-auth shell-report shell-auth-db shell-report-db
+.PHONY: up down build logs ps clean restart lint test pr-check logs-auth logs-report logs-gateway shell-auth shell-report shell-auth-db shell-report-db seed-admin
 
 COMPOSE = docker compose
 
@@ -92,3 +92,32 @@ test:
 # Validasi PR: build, lint, test
 pr-check: build lint test
 	@echo "✅ PR Check selesai: Build, Lint, dan Test berhasil tanpa eror."
+
+# ─────────────────────────────────────────────
+# Seed
+# ─────────────────────────────────────────────
+
+# Seed admin & user ke auth_db (jalankan setelah build pertama / clean)
+seed-admin:
+	@echo "🌱 Menyalin script seed ke container auth-service..."
+	docker cp services/auth-service/seed_admin.py laporin-auth-service:/app/seed_admin.py
+	@echo "🌱 Menjalankan seeder admin..."
+	docker exec laporin-auth-service python seed_admin.py
+
+# Build ulang dan langsung seed admin
+build-seed: build seed-admin
+
+# Seed laporan demo ke report_db (jalankan setelah seed-admin)
+seed-reports:
+	@echo "📋 Menyalin script seed laporan ke container..."
+	docker cp services/report-service/seed_reports.py laporin-report-service:/app/seed_reports.py
+	@echo "📋 Menjalankan seeder laporan..."
+	docker exec laporin-report-service python seed_reports.py
+
+# Seed semua: admin + laporan (urut)
+seed-all: seed-admin seed-reports
+	@echo "✅ Seed selesai: admin dan laporan berhasil dibuat."
+
+# Build ulang lalu seed semua
+build-seed-all: build seed-all
+

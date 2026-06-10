@@ -337,8 +337,11 @@ class DashboardStats(BaseModel):
     menunggu: int
     diproses: int
     selesai: int
+    ditemukan: int = 0
     kategori_stats: dict
     prioritas_stats: dict
+    total_users: int = 0
+    active_users: int = 0
 
 
 # ============================================================
@@ -356,3 +359,95 @@ class StatusLogResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ============================================================
+# KEHILANGAN PUBLIC SCHEMAS
+# ============================================================
+
+class KehilanganReportResponse(BaseModel):
+    """Schema untuk daftar kehilangan publik — termasuk nama pelapor."""
+    id: int
+    judul: str
+    deskripsi: str
+    lokasi: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    tanggal_kejadian: Optional[date] = None
+    status: str
+    created_at: datetime
+    pelapor_nama: str
+    pelapor_id: int
+
+    class Config:
+        from_attributes = True
+
+
+class KehilanganListResponse(BaseModel):
+    """Schema untuk response list kehilangan publik."""
+    total: int
+    reports: List[KehilanganReportResponse]
+
+
+class PublicReportDetailResponse(BaseModel):
+    """Schema untuk detail laporan kehilangan publik (termasuk nama pelapor & found claims)."""
+    id: int
+    judul: str
+    deskripsi: str
+    lokasi: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    tanggal_kejadian: Optional[date] = None
+    status: str
+    created_at: datetime
+    pelapor_nama: str
+    pelapor_id: int
+    locations: List[ReportLocationResponse] = []
+    found_claims: List["FoundClaimResponse"] = []
+
+    class Config:
+        from_attributes = True
+
+
+# ============================================================
+# FOUND CLAIM SCHEMAS
+# ============================================================
+
+class FoundClaimResponse(BaseModel):
+    """Schema untuk response klaim menemukan barang."""
+    id: int
+    report_id: int
+    user_id: int
+    deskripsi: str
+    bukti_url: Optional[str] = None
+    status: str
+    created_at: datetime
+    user_nama: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ============================================================
+# ADMIN USER MANAGEMENT SCHEMAS
+# ============================================================
+
+class AdminUserResponse(BaseModel):
+    """Schema untuk response user di admin panel."""
+    id: int
+    email: str
+    nama: str
+    role: str
+    no_hp: Optional[str] = None
+    is_active: bool
+    created_at: datetime
+    total_reports: int = 0
+
+    class Config:
+        from_attributes = True
+
+
+class AdminUserListResponse(BaseModel):
+    """Schema untuk response list user admin."""
+    total: int
+    users: List[AdminUserResponse]

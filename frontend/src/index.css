@@ -1331,6 +1331,63 @@ body.dark .modal-content {
 }
 
 
+/* ============================================================
+   KEHILANGAN CARDS
+   ============================================================ */
+.kehilangan-card {
+  transition: transform 0.2s, box-shadow 0.2s !important;
+}
+.kehilangan-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
+}
+
+.badge-ditemukan {
+  background: #f5f3ff;
+  color: #8b5cf6;
+}
+
+/* ============================================================
+   ADMIN TABLE
+   ============================================================ */
+.admin-table th {
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+}
+.admin-table td {
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.admin-table tr:hover td {
+  background: var(--bg-secondary, #f8fafc);
+}
+
+/* ============================================================
+   BTN SUCCESS
+   ============================================================ */
+.btn-success {
+  background: #10b981;
+  color: white;
+  border: 1px solid #10b981;
+}
+.btn-success:hover:not(:disabled) {
+  background: #059669;
+  transform: translateY(-1px);
+}
+
+/* ============================================================
+   GRID STAT CARDS — RESPONSIVE
+   ============================================================ */
+@media (max-width: 640px) {
+  .grid-stat-cards {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+@media (max-width: 400px) {
+  .grid-stat-cards {
+    grid-template-columns: 1fr !important;
+  }
+}
 
 
 /* ============================================================
@@ -1469,6 +1526,18 @@ body.dark .badge-perundungan { background: rgba(239,68,68,.15);  color: #fca5a5;
 body.dark .badge-tinggi  { background: rgba(239,68,68,.15);  color: #fca5a5; }
 body.dark .badge-sedang  { background: rgba(245,158,11,.15); color: #fcd34d; }
 body.dark .badge-rendah  { background: rgba(100,116,139,.15); color: #94a3b8; }
+body.dark .badge-ditemukan { background: rgba(139,92,246,.15); color: #c4b5fd; }
+
+/* ── BTN SUCCESS (dark) ── */
+body.dark .btn-success {
+  background: rgba(16,185,129,0.2);
+  color: #6ee7b7;
+  border-color: rgba(16,185,129,0.4);
+}
+body.dark .btn-success:hover:not(:disabled) {
+  background: #10b981;
+  color: white;
+}
 
 /* Anonim badge */
 body.dark .badge-anonim {

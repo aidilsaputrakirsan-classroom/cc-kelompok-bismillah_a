@@ -291,3 +291,98 @@ export const updateReportByUser = async (id, data) => {
 export const deleteReport = async (id) => {
   return request("DELETE", `/reports/${id}`);
 };
+
+// ============================================================
+// KEHILANGAN (PUBLIC)
+// ============================================================
+
+export const fetchKehilanganReports = async ({ skip = 0, limit = 20, search, status } = {}) => {
+  const params = new URLSearchParams({ skip, limit });
+  if (search) params.set("search", search);
+  if (status) params.set("status", status);
+  return request("GET", `/reports/kehilangan?${params}`);
+};
+
+export const getPublicReport = async (id) => {
+  return request("GET", `/reports/kehilangan/${id}`);
+};
+
+export const markReportFound = async (id) => {
+  return request("PATCH", `/reports/${id}/found`);
+};
+
+export const claimFoundReport = async (reportId, deskripsi, buktiFile) => {
+  const token = getToken();
+  if (!token) {
+    clearToken();
+    window.location.href = "/login";
+    throw new Error("Sesi tidak ditemukan. Silakan login kembali.");
+  }
+
+  const formData = new FormData();
+  formData.append("deskripsi", deskripsi);
+  formData.append("bukti", buktiFile);
+
+  let res;
+  try {
+    res = await fetch(`${BASE_URL}/reports/${reportId}/claim-found`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${token}` },
+      body: formData,
+    });
+  } catch {
+    _emitServiceError("/reports");
+    throw new Error("Layanan sementara tidak tersedia.");
+  }
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Error ${res.status}`);
+  }
+  return res.json();
+};
+
+export const confirmFoundClaim = async (reportId, claimId) => {
+  return request("PATCH", `/reports/${reportId}/claims/${claimId}/confirm`);
+};
+
+export const rejectFoundClaim = async (reportId, claimId) => {
+  return request("PATCH", `/reports/${reportId}/claims/${claimId}/reject`);
+};
+
+// ============================================================
+// ADMIN — USER MANAGEMENT
+// ============================================================
+
+export const fetchAllUsers = async ({ skip = 0, limit = 50, search, role } = {}) => {
+  const params = new URLSearchParams({ skip, limit });
+  if (search) params.set("search", search);
+  if (role) params.set("role", role);
+  const data = await request("GET", `/admin/users?${params}`);
+  // Auth-service mengembalikan array langsung, bungkus agar konsisten
+  if (Array.isArray(data)) {
+    return { users: data, total: data.length };
+  }
+  // Jika sudah berupa objek { users, total } (forward compatible)
+  return data;
+};
+
+export const toggleUserActive = async (userId) => {
+  return request("PATCH", `/admin/users/${userId}/toggle-active`);
+};
+
+export const resetUserPassword = async (userId) => {
+  return request("POST", `/admin/users/${userId}/reset-password`);
+};
+
+export const createUser = async (userData) => {
+  return request("POST", "/admin/users", userData);
+};
+
+export const updateUser = async (userId, userData) => {
+  return request("PUT", `/admin/users/${userId}`, userData);
+};
+
+export const deleteUser = async (userId) => {
+  return request("DELETE", `/admin/users/${userId}`);
+};

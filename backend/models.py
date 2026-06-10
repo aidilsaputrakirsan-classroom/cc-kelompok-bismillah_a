@@ -32,6 +32,7 @@ class User(Base):
     reports = relationship("Report", back_populates="user", foreign_keys="Report.user_id")
     comments = relationship("Comment", back_populates="user")
     notifications = relationship("Notification", back_populates="user")
+    found_claims = relationship("FoundClaim", back_populates="user")
 
 
 # =========================
@@ -84,6 +85,7 @@ class Report(Base):
     comments = relationship("Comment", back_populates="report", cascade="all, delete-orphan")
     assignments = relationship("ReportAssignment", back_populates="report", cascade="all, delete-orphan")
     feedbacks = relationship("Feedback", back_populates="report", cascade="all, delete-orphan")
+    found_claims = relationship("FoundClaim", back_populates="report", cascade="all, delete-orphan")
 
 
 # =========================
@@ -221,3 +223,23 @@ class ReportAssignment(Base):
     # Relationships
     report = relationship("Report", back_populates="assignments")
     unit = relationship("Unit", back_populates="assignments")
+
+
+# =========================
+# 12. FOUND CLAIMS
+# =========================
+class FoundClaim(Base):
+    """Klaim 'saya menemukan barang' dari user lain, beserta bukti."""
+    __tablename__ = "found_claims"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    report_id = Column(Integer, ForeignKey("reports.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    deskripsi = Column(Text, nullable=False)
+    bukti_path = Column(Text, nullable=True)        # path foto bukti
+    status = Column(String(20), default="pending")   # pending / accepted / rejected
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    report = relationship("Report", back_populates="found_claims")
+    user = relationship("User", back_populates="found_claims")

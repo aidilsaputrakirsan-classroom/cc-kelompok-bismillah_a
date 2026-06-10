@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
 import {
   Chart as ChartJS,
   ArcElement,
@@ -11,43 +10,24 @@ import {
   Legend,
 } from "chart.js";
 import { Doughnut, Bar } from "react-chartjs-2";
-import { fetchDashboardStats, fetchAllReports, updateReport, fetchCategories, fetchUnits, assignReport } from "../services/api";
+import { fetchDashboardStats } from "../services/api";
 import { PageLoading } from "../components/LoadingSpinner";
-import FilterBar from "../components/FilterBar";
 import StatCard from "../components/StatCard";
-import ReportTable from "../components/ReportTable";
-import AssignUnitModal from "../components/AssignUnitModal";
 import ServiceUnavailableBanner, { isServiceError } from "../components/ServiceUnavailableBanner";
 
 ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState(null);
-  const [reports, setReports] = useState([]);
-  const [total, setTotal] = useState(0);
-  const [categories, setCategories] = useState([]);
-  const [units, setUnits] = useState([]);
-  const [filters, setFilters] = useState({ status: "", kategori_id: "", search: "" });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState("dashboard");
-  const [selectedReport, setSelectedReport] = useState(null);
-  const [assignModal, setAssignModal] = useState(null);
-  const [assignLoading, setAssignLoading] = useState(false);
 
   const load = async () => {
     setLoading(true);
     setError("");
     try {
-      const [s, cats, u] = await Promise.all([
-        fetchDashboardStats(),
-        fetchCategories(),
-        fetchUnits(),
-      ]);
+      const s = await fetchDashboardStats();
       setStats(s);
-      setCategories(cats);
-      setUnits(u);
-      await loadReports();
     } catch (err) {
       console.error(err);
       setError(err.message || "Gagal memuat data dashboard.");
@@ -56,65 +36,7 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const loadReports = async () => {
-    const params = {};
-    if (filters.status) params.status = filters.status;
-    if (filters.kategori_id) params.kategori_id = filters.kategori_id;
-    if (filters.search) params.search = filters.search;
-    const data = await fetchAllReports(params);
-    setReports(data.reports);
-    setTotal(data.total);
-  };
-
   useEffect(() => { load(); }, []);
-
-  const handleStatusChange = async (reportId, newStatus) => {
-    // Optimistic update: langsung update UI tanpa tunggu API
-    setReports((prev) =>
-      prev.map((r) => (r.id === reportId ? { ...r, status: newStatus } : r))
-    );
-    try {
-      await updateReport(reportId, { status: newStatus });
-      // Refresh stats di background
-      const s = await fetchDashboardStats();
-      setStats(s);
-    } catch (err) {
-      // Revert jika API error
-      await loadReports();
-      alert("Gagal mengubah status: " + err.message);
-    }
-  };
-
-  const handlePrioritasChange = async (reportId, newPrioritas) => {
-    // Optimistic update
-    setReports((prev) =>
-      prev.map((r) => (r.id === reportId ? { ...r, prioritas: newPrioritas } : r))
-    );
-    try {
-      await updateReport(reportId, { prioritas: newPrioritas });
-    } catch (err) {
-      await loadReports();
-      alert("Gagal mengubah prioritas: " + err.message);
-    }
-  };
-
-  const handleAssign = async (reportId, unitId) => {
-    setAssignLoading(true);
-    try {
-      await assignReport(reportId, Number(unitId));
-      setAssignModal(null);
-      alert("Laporan berhasil ditugaskan ke unit.");
-    } catch (err) {
-      alert(err.message);
-    } finally {
-      setAssignLoading(false);
-    }
-  };
-
-  const formatDate = (dt) => {
-    if (!dt) return "—";
-    return new Date(dt).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
-  };
 
   if (loading && !stats) return <PageLoading />;
 
@@ -123,6 +45,8 @@ export default function AdminDashboardPage() {
     { label: "Menunggu", value: stats.menunggu, icon: "⏳", bg: "#fffbeb", color: "#f59e0b" },
     { label: "Diproses", value: stats.diproses, icon: "🔄", bg: "#eff6ff", color: "#3b82f6" },
     { label: "Selesai", value: stats.selesai, icon: "✅", bg: "#f0fdf4", color: "#10b981" },
+    { label: "Ditemukan", value: stats.ditemukan || 0, icon: "🎉", bg: "#f5f3ff", color: "#8b5cf6" },
+    { label: "Pengguna Aktif", value: `${stats.active_users || 0}/${stats.total_users || 0}`, icon: "👥", bg: "#fef3c7", color: "#d97706" },
   ] : [];
 
   const donutData = stats ? {
@@ -135,14 +59,27 @@ export default function AdminDashboardPage() {
   } : null;
 
   const barData = stats ? {
-    labels: ["Menunggu", "Diproses", "Selesai"],
+    labels: ["Menunggu", "Diproses", "Selesai", "Ditemukan"],
     datasets: [{
       label: "Jumlah Laporan",
-      data: [stats.menunggu, stats.diproses, stats.selesai],
-      backgroundColor: ["#fef3c7", "#dbeafe", "#d1fae5"],
-      borderColor: ["#f59e0b", "#3b82f6", "#10b981"],
+      data: [stats.menunggu, stats.diproses, stats.selesai, stats.ditemukan || 0],
+      backgroundColor: ["#fef3c7", "#dbeafe", "#d1fae5", "#ede9fe"],
+      borderColor: ["#f59e0b", "#3b82f6", "#10b981", "#8b5cf6"],
       borderWidth: 2,
       borderRadius: 8,
+    }],
+  } : null;
+
+  const prioritasData = stats ? {
+    labels: ["Tinggi", "Sedang", "Rendah"],
+    datasets: [{
+      data: [
+        stats.prioritas_stats?.tinggi || 0,
+        stats.prioritas_stats?.sedang || 0,
+        stats.prioritas_stats?.rendah || 0,
+      ],
+      backgroundColor: ["#ef4444", "#f59e0b", "#10b981"],
+      borderWidth: 0,
     }],
   } : null;
 
@@ -151,49 +88,39 @@ export default function AdminDashboardPage() {
       <div className="container" style={{ padding: "2rem 1.5rem" }}>
 
         {/* Header */}
-        <div className="flex-between page-header" style={{ marginBottom: "2rem", flexWrap: "wrap", gap: "1rem" }}>
-          <div>
-            <h1 style={{ fontSize: "1.75rem", fontWeight: 800 }}>Dashboard Admin</h1>
-            <p style={{ color: "var(--text-muted)", marginTop: "0.25rem" }}>LaporIn ITK — Kelola semua laporan masuk</p>
-          </div>
-          <div className="admin-tab-btns">
-            <button
-              className={`btn ${activeTab === "dashboard" ? "btn-primary" : "btn-secondary"}`}
-              onClick={() => setActiveTab("dashboard")}
-            >📊 Statistik</button>
-            <button
-              className={`btn ${activeTab === "reports" ? "btn-primary" : "btn-secondary"}`}
-              onClick={() => { setActiveTab("reports"); loadReports(); }}
-            >📋 Laporan</button>
-          </div>
+        <div style={{ marginBottom: "2rem" }}>
+          <h1 style={{ fontSize: "1.75rem", fontWeight: 800 }}>📊 Dashboard Admin</h1>
+          <p style={{ color: "var(--text-muted)", marginTop: "0.25rem" }}>
+            LaporIn ITK — Ringkasan statistik sistem pelaporan
+          </p>
         </div>
 
-        {/* Service Unavailable Banner */}
-        {error && isServiceError(error) && (
-          <ServiceUnavailableBanner onRetry={load} />
-        )}
+        {/* Error */}
+        {error && isServiceError(error) && <ServiceUnavailableBanner onRetry={load} />}
         {error && !isServiceError(error) && (
           <div style={{
             background: "#fee2e2", color: "#991b1b",
             padding: "0.875rem 1rem", borderRadius: "8px",
             marginBottom: "1rem", fontSize: "0.875rem",
-          }}>
-            ⚠️ {error}
-          </div>
+          }}>⚠️ {error}</div>
         )}
 
-        {/* === DASHBOARD TAB === */}
-        {activeTab === "dashboard" && stats && (
+        {stats && (
           <>
             {/* Stat Cards */}
-            <div className="grid-4" style={{ marginBottom: "2rem" }}>
+            <div className="grid-stat-cards" style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+              gap: "1rem",
+              marginBottom: "2rem",
+            }}>
               {statCards.map((s) => (
                 <StatCard key={s.label} {...s} />
               ))}
             </div>
 
             {/* Charts */}
-            <div className="grid-2">
+            <div className="grid-2" style={{ marginBottom: "2rem" }}>
               <div className="card">
                 <h3 style={{ fontWeight: 700, marginBottom: "1.5rem" }}>🗂️ Laporan per Kategori</h3>
                 {donutData && (
@@ -215,42 +142,21 @@ export default function AdminDashboardPage() {
                 )}
               </div>
             </div>
+
+            {/* Prioritas Chart */}
+            <div className="card" style={{ maxWidth: 400, marginBottom: "2rem" }}>
+              <h3 style={{ fontWeight: 700, marginBottom: "1.5rem" }}>🎯 Laporan per Prioritas</h3>
+              {prioritasData && (
+                <div style={{ maxWidth: 250, margin: "0 auto" }}>
+                  <Doughnut data={prioritasData} options={{
+                    plugins: { legend: { position: "bottom" } },
+                    cutout: "60%",
+                  }} />
+                </div>
+              )}
+            </div>
           </>
         )}
-
-        {/* === REPORTS TAB === */}
-        {activeTab === "reports" && (
-          <>
-            {/* Filter */}
-            <FilterBar
-              filters={filters}
-              onFilterChange={setFilters}
-              categories={categories}
-              onSubmit={loadReports}
-              inputStyle={{ flex: 1, maxWidth: 280 }}
-              selectStyle={{ maxWidth: 180 }}
-            />
-
-            {/* Table */}
-            <ReportTable
-              reports={reports}
-              formatDate={formatDate}
-              onStatusChange={handleStatusChange}
-              onPrioritasChange={handlePrioritasChange}
-              onAssign={(id) => setAssignModal(id)}
-            />
-          </>
-        )}
-
-        {/* Assign Modal */}
-        <AssignUnitModal
-          open={!!assignModal}
-          reportId={assignModal}
-          units={units}
-          loading={assignLoading}
-          onAssign={handleAssign}
-          onClose={() => setAssignModal(null)}
-        />
       </div>
     </div>
   );

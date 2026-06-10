@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from "react-leaflet";
 import L from "leaflet";
-import { getReport, fetchComments, createComment, submitFeedback, getUser } from "../services/api";
+import { getReport, fetchComments, createComment, submitFeedback, getUser, markReportFound, confirmFoundClaim, rejectFoundClaim } from "../services/api";
 import { PageLoading } from "../components/LoadingSpinner";
 import EmptyState from "../components/EmptyState";
 import StatusTimeline from "../components/StatusTimeline";
@@ -16,8 +16,8 @@ L.Icon.Default.mergeOptions({
   shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
 
-const STATUS_COLORS = { menunggu: "#f59e0b", diproses: "#3b82f6", selesai: "#10b981" };
-const STATUS_ICONS = { menunggu: "⏳", diproses: "🔄", selesai: "✅" };
+const STATUS_COLORS = { menunggu: "#f59e0b", diproses: "#3b82f6", selesai: "#10b981", ditemukan: "#8b5cf6" };
+const STATUS_ICONS = { menunggu: "⏳", diproses: "🔄", selesai: "✅", ditemukan: "🎉" };
 
 export default function DetailLaporanPage() {
   const { id } = useParams();
@@ -32,6 +32,10 @@ export default function DetailLaporanPage() {
   const [feedbackForm, setFeedbackForm] = useState({ rating: 5, komentar: "" });
   const [feedbackDone, setFeedbackDone] = useState(false);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [markFoundLoading, setMarkFoundLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(null);
+
+  const BASE_URL = import.meta.env.VITE_API_URL || "";
 
   const load = async () => {
     setLoading(true);
@@ -76,6 +80,48 @@ export default function DetailLaporanPage() {
       alert(err.message);
     } finally {
       setFeedbackLoading(false);
+    }
+  };
+
+  const handleMarkFound = async () => {
+    if (!confirm("Tandai laporan ini sebagai sudah ditemukan sendiri?")) return;
+    setMarkFoundLoading(true);
+    try {
+      await markReportFound(Number(id));
+      alert("Barang berhasil ditandai ditemukan!");
+      await load();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setMarkFoundLoading(false);
+    }
+  };
+
+  const handleConfirmClaim = async (claimId) => {
+    if (!confirm("Konfirmasi bahwa barang Anda memang ditemukan oleh orang ini?")) return;
+    setActionLoading(claimId);
+    try {
+      await confirmFoundClaim(Number(id), claimId);
+      alert("✅ Klaim dikonfirmasi! Barang sudah ditemukan.");
+      await load();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRejectClaim = async (claimId) => {
+    if (!confirm("Tolak klaim penemuan ini?")) return;
+    setActionLoading(claimId);
+    try {
+      await rejectFoundClaim(Number(id), claimId);
+      alert("Klaim ditolak.");
+      await load();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -150,6 +196,33 @@ export default function DetailLaporanPage() {
         {/* Status Timeline */}
         <StatusTimeline currentStatus={report.status} />
 
+        {/* Mark Found Button — khusus laporan Kehilangan milik sendiri yang belum ditemukan */}
+        {report.category?.nama_kategori?.toLowerCase() === "kehilangan" &&
+          !(["ditemukan", "selesai"].includes(report.status)) && (
+          <div className="card" style={{ marginBottom: "1.5rem", textAlign: "center" }}>
+            <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", marginBottom: "1rem" }}>
+              Apakah barang Anda sudah ditemukan?
+            </p>
+            <button
+              className="btn btn-primary"
+              onClick={handleMarkFound}
+              disabled={markFoundLoading}
+              style={{ padding: "0.875rem 2rem", fontSize: "1rem" }}
+            >
+              {markFoundLoading ? "⏳ Memproses..." : "🎉 Tandai Sudah Ditemukan Sendiri"}
+            </button>
+          </div>
+        )}
+
+        {/* Ditemukan Banner */}
+        {report.status === "ditemukan" && (
+          <div className="card" style={{ marginBottom: "1.5rem", background: "#f5f3ff", border: "2px solid #8b5cf6", textAlign: "center" }}>
+            <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🎉</div>
+            <h3 style={{ fontWeight: 700, color: "#7c3aed", marginBottom: "0.25rem" }}>Barang Sudah Ditemukan!</h3>
+            <p style={{ fontSize: "0.875rem", color: "var(--text-muted)" }}>Laporan ini telah ditandai sebagai sudah ditemukan.</p>
+          </div>
+        )}
+
         {/* Map */}
         {hasMap && (
           <div className="card-flat" style={{ marginBottom: "1.5rem" }}>
@@ -203,6 +276,139 @@ export default function DetailLaporanPage() {
           onSubmit={handleComment}
           formatDate={formatDate}
         />
+
+        {/* Found Claims Section — hanya untuk laporan Kehilangan */}
+        {report.category?.nama_kategori?.toLowerCase() === "kehilangan" && (() => {
+          const allClaims = report.found_claims || [];
+          const pendingClaims = allClaims.filter(c => c.status === "pending");
+          if (allClaims.length === 0) return null;
+          return (
+            <>
+              {/* Banner notifikasi klaim pending */}
+              {pendingClaims.length > 0 && (
+                <div style={{
+                  background: "linear-gradient(135deg, #fef3c7 0%, #fffbeb 100%)",
+                  border: "2px solid #f59e0b",
+                  borderRadius: 14,
+                  padding: "1.25rem 1.5rem",
+                  marginBottom: "1.5rem",
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "1rem",
+                }}>
+                  <div style={{ fontSize: "2rem", lineHeight: 1, flexShrink: 0 }}>🔔</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, color: "#92400e", fontSize: "0.9375rem", marginBottom: "0.375rem" }}>
+                      Ada {pendingClaims.length} Klaim Penemuan Menunggu Konfirmasi Anda!
+                    </div>
+                    <div style={{ fontSize: "0.8125rem", color: "#78350f", lineHeight: 1.6 }}>
+                      {pendingClaims.map((c, i) => (
+                        <span key={c.id}>
+                          <strong>{c.user_nama || "Pengguna"}</strong> mengklaim menemukan barang Anda
+                          {i < pendingClaims.length - 1 ? "; " : ". "}
+                        </span>
+                      ))}
+                      Lihat detail dan konfirmasi di bawah.
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Daftar semua klaim */}
+              <div className="card" style={{ marginBottom: "1.5rem" }}>
+                <h3 style={{ fontSize: "1rem", fontWeight: 700, marginBottom: "1rem", paddingBottom: "0.75rem", borderBottom: "1px solid var(--border)" }}>
+                  📋 Klaim Penemuan ({allClaims.length})
+                </h3>
+                <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                  {allClaims.map((claim) => {
+                    const CLAIM_STATUS = {
+                      pending: { label: "Menunggu Konfirmasi", color: "#f59e0b", bg: "#fffbeb" },
+                      accepted: { label: "Diterima", color: "#10b981", bg: "#f0fdf4" },
+                      rejected: { label: "Ditolak", color: "#ef4444", bg: "#fef2f2" },
+                    };
+                    const cs = CLAIM_STATUS[claim.status] || CLAIM_STATUS.pending;
+                    return (
+                      <div key={claim.id} style={{
+                        background: "var(--card-bg, #f8fafc)",
+                        border: "1px solid var(--border)",
+                        borderRadius: 10,
+                        padding: "1rem",
+                        opacity: claim.status === "rejected" ? 0.6 : 1,
+                      }}>
+                        {/* Header klaim */}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
+                          <span style={{ fontWeight: 700, fontSize: "0.9rem", color: "var(--text-primary)", display: "flex", alignItems: "center", gap: "0.375rem" }}>
+                            <span style={{
+                              width: 32, height: 32, borderRadius: "50%",
+                              background: "linear-gradient(135deg, #7c3aed, #4f46e5)",
+                              color: "white", display: "inline-flex",
+                              alignItems: "center", justifyContent: "center",
+                              fontSize: "0.875rem", fontWeight: 700, flexShrink: 0,
+                            }}>
+                              {(claim.user_nama || "?")[0].toUpperCase()}
+                            </span>
+                            {claim.user_nama || "Pengguna"}
+                          </span>
+                          <span className="badge" style={{ background: cs.bg, color: cs.color, fontSize: "0.75rem" }}>
+                            {cs.label}
+                          </span>
+                        </div>
+
+                        {/* Deskripsi */}
+                        <p style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginBottom: "0.75rem", lineHeight: 1.6 }}>
+                          {claim.deskripsi}
+                        </p>
+
+                        {/* Foto bukti */}
+                        {claim.bukti_url && (
+                          <div style={{ marginBottom: "0.75rem" }}>
+                            <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", marginBottom: "0.375rem" }}>📸 Foto Bukti:</div>
+                            <img
+                              src={`${BASE_URL}${claim.bukti_url}`}
+                              alt="Bukti penemuan"
+                              style={{
+                                maxWidth: "100%", maxHeight: 220, borderRadius: 8,
+                                objectFit: "cover", border: "1px solid var(--border)",
+                                cursor: "pointer", display: "block",
+                              }}
+                              onClick={() => window.open(`${BASE_URL}${claim.bukti_url}`, "_blank")}
+                            />
+                          </div>
+                        )}
+
+                        <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.75rem" }}>
+                          🕐 {formatDate(claim.created_at)}
+                        </div>
+
+                        {/* Tombol konfirmasi/tolak — hanya untuk klaim pending */}
+                        {claim.status === "pending" && (
+                          <div style={{ display: "flex", gap: "0.5rem" }}>
+                            <button
+                              className="btn btn-primary btn-sm"
+                              onClick={() => handleConfirmClaim(claim.id)}
+                              disabled={actionLoading === claim.id}
+                              style={{ flex: 1 }}
+                            >
+                              {actionLoading === claim.id ? "⏳" : "✅ Konfirmasi — Ini Barang Saya"}
+                            </button>
+                            <button
+                              className="btn btn-danger btn-sm"
+                              onClick={() => handleRejectClaim(claim.id)}
+                              disabled={actionLoading === claim.id}
+                              style={{ flex: 1 }}
+                            >
+                              {actionLoading === claim.id ? "⏳" : "❌ Tolak"}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          );
+        })()}
 
         {/* Feedback (hanya jika selesai) */}
         {report.status === "selesai" && (

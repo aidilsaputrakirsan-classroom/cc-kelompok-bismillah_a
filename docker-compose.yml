@@ -120,6 +120,8 @@ services:
         condition: service_healthy
     networks:
       - laporin_ms_net
+    volumes:
+      - report_uploads:/app/uploads
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')"]
       interval: 10s
@@ -209,6 +211,8 @@ volumes:
     name: laporin-auth-db-data
   report_db_data:
     name: laporin-report-db-data
+  report_uploads:
+    name: laporin-report-uploads
 
 # ================================
 # NETWORKS

@@ -16,7 +16,11 @@ RUN pip install --no-cache-dir --upgrade pip && \
 COPY . .
 
 # Non-root user (keamanan)
-RUN useradd -m -r appuser && chown -R appuser:appuser /app
+# Buat direktori uploads dulu sebagai root, lalu berikan ke appuser
+RUN useradd -m -r appuser && \
+    mkdir -p /app/uploads && \
+    chown -R appuser:appuser /app && \
+    chmod 755 /app/uploads
 USER appuser
 
 # Healthcheck

@@ -4,17 +4,20 @@ Sistem Pelaporan Institut Teknologi Kalimantan
 """
 
 import os
+import uuid
+from io import BytesIO
 from dotenv import load_dotenv
-from fastapi import FastAPI, Depends, HTTPException, Query, status
+from fastapi import FastAPI, Depends, HTTPException, Query, status, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 from config import settings, logger
 from database import engine, get_db
-from models import Base, User, Unit
+from models import Base, User, Unit, Report
 from schemas import (
     # Auth
     UserCreate, UserResponse, LoginRequest, TokenResponse, normalize_and_validate_email,
@@ -35,6 +38,12 @@ from schemas import (
     AssignmentCreate, AssignmentResponse,
     # Admin
     DashboardStats, StatusLogResponse,
+    # Kehilangan
+    KehilanganListResponse, PublicReportDetailResponse,
+    # Found Claims
+    FoundClaimResponse,
+    # Admin Users
+    AdminUserListResponse, AdminUserResponse,
 )
 from auth import create_access_token, get_current_user, require_admin
 import crud
@@ -43,6 +52,10 @@ load_dotenv()
 
 # Auto-create semua tabel (jika belum ada)
 Base.metadata.create_all(bind=engine)
+
+# Buat folder uploads jika belum ada
+UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 app = FastAPI(
     title=settings.APP_TITLE,
@@ -64,6 +77,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Static files — serve uploaded images
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 
 # ==================== STARTUP: SEED DATA ====================
@@ -92,8 +108,6 @@ def health_check(db: Session = Depends(get_db)):
         "version": "1.0.0",
         "app": "LaporIn ITK",
     }
-
-    # Cek database connection
     try:
         db.execute(text("SELECT 1"))
         health["database"] = "connected"
@@ -127,14 +141,7 @@ def team_info():
 
 @app.post("/auth/register", response_model=UserResponse, status_code=201, tags=["Auth"])
 def register(user_data: UserCreate, db: Session = Depends(get_db)):
-    """
-    Registrasi user / pelapor baru.
-
-    - **email**: Email unik (format: user@domain.com)
-    - **nama**: Nama lengkap (min 2 karakter)
-    - **password**: Min 8 karakter, mengandung huruf besar, kecil, angka, simbol
-    - **no_hp**: Nomor HP opsional
-    """
+    """Registrasi user / pelapor baru."""
     user = crud.create_user(db=db, user_data=user_data)
     if not user:
         raise HTTPException(status_code=400, detail="Email sudah terdaftar")
@@ -143,15 +150,10 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
 
 @app.post("/auth/login", response_model=TokenResponse, tags=["Auth"])
 def login(login_data: LoginRequest, db: Session = Depends(get_db)):
-    """
-    Login dan dapatkan JWT token.
-
-    Token berlaku selama 60 menit. Gunakan di header: `Authorization: Bearer <token>`
-    """
+    """Login dan dapatkan JWT token."""
     user = crud.authenticate_user(db=db, email=login_data.email, password=login_data.password)
     if not user:
         raise HTTPException(status_code=401, detail="Email atau password salah")
-
     token = create_access_token(data={"sub": str(user.id)})
     return {"access_token": token, "token_type": "bearer", "user": user}
 
@@ -161,16 +163,14 @@ def login_swagger(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
 ):
-    """OAuth2 password flow untuk Swagger Authorize. Isikan email di field `username`."""
+    """OAuth2 password flow untuk Swagger Authorize."""
     try:
         email = normalize_and_validate_email(form_data.username)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
-
     user = crud.authenticate_user(db=db, email=email, password=form_data.password)
     if not user:
         raise HTTPException(status_code=401, detail="Email atau password salah")
-
     token = create_access_token(data={"sub": str(user.id)})
     return {"access_token": token, "token_type": "bearer"}
 
@@ -185,7 +185,7 @@ def get_me(current_user: User = Depends(get_current_user)):
 
 @app.get("/categories", response_model=list[CategoryResponse], tags=["Referensi"])
 def list_categories(db: Session = Depends(get_db)):
-    """Ambil daftar kategori laporan (Kehilangan, Fasilitas, Perundungan)."""
+    """Ambil daftar kategori laporan."""
     return crud.get_categories(db)
 
 
@@ -194,8 +194,141 @@ def list_units(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Ambil daftar unit penanganan. **Membutuhkan autentikasi.**"""
+    """Ambil daftar unit penanganan."""
     return crud.get_units(db)
+
+
+# ==================== KEHILANGAN PUBLIC ENDPOINTS ====================
+
+@app.get("/reports/kehilangan", response_model=KehilanganListResponse, tags=["Kehilangan"])
+def daftar_kehilangan(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    search: str | None = Query(None, description="Cari berdasarkan judul/deskripsi/lokasi"),
+    status: str | None = Query(None, description="Filter: menunggu / diproses / selesai / ditemukan"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Ambil daftar semua laporan kehilangan barang dari semua user. Termasuk nama pelapor."""
+    return crud.get_kehilangan_reports(db=db, skip=skip, limit=limit, search=search, status=status)
+
+
+@app.get("/reports/kehilangan/{report_id}", response_model=PublicReportDetailResponse, tags=["Kehilangan"])
+def detail_kehilangan_publik(
+    report_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Ambil detail laporan kehilangan publik. Hanya untuk laporan kategori Kehilangan."""
+    report = crud.get_public_report(db=db, report_id=report_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="Laporan kehilangan tidak ditemukan")
+    return report
+
+
+@app.patch("/reports/{report_id}/found", response_model=ReportResponse, tags=["Kehilangan"])
+def tandai_ditemukan_sendiri(
+    report_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Pemilik laporan menandai barangnya sudah ditemukan sendiri."""
+    report, error = crud.mark_report_found_by_owner(db=db, report_id=report_id, owner_id=current_user.id)
+    if error == "not_found":
+        raise HTTPException(status_code=404, detail="Laporan tidak ditemukan atau bukan milik Anda")
+    if error == "already_found":
+        raise HTTPException(status_code=400, detail="Barang sudah ditandai ditemukan")
+    if error == "already_closed":
+        raise HTTPException(status_code=400, detail="Laporan sudah ditutup/selesai")
+    if error == "not_kehilangan":
+        raise HTTPException(status_code=400, detail="Fitur ini hanya untuk laporan kehilangan")
+    return report
+
+
+@app.post("/reports/{report_id}/claim-found", tags=["Kehilangan"])
+async def klaim_menemukan_barang(
+    report_id: int,
+    deskripsi: str = Form(..., min_length=5, description="Deskripsi bagaimana Anda menemukan barang"),
+    bukti: UploadFile = File(..., description="Foto bukti menemukan barang"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """User lain mengklaim menemukan barang dengan bukti foto. Foto dikompresi otomatis."""
+    # Validasi laporan
+    report = crud.get_public_report(db=db, report_id=report_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="Laporan kehilangan tidak ditemukan")
+    if report["status"] == "ditemukan":
+        raise HTTPException(status_code=400, detail="Barang sudah ditemukan")
+    if report["pelapor_id"] == current_user.id:
+        raise HTTPException(status_code=400, detail="Tidak bisa mengklaim barang milik sendiri. Gunakan fitur 'Tandai Ditemukan'.")
+
+    # Validasi file type
+    if bukti.content_type not in ["image/jpeg", "image/png", "image/webp", "image/jpg"]:
+        raise HTTPException(status_code=400, detail="Hanya file gambar (JPEG/PNG/WebP) yang diizinkan")
+
+    # Baca dan kompresi gambar
+    try:
+        from PIL import Image
+        contents = await bukti.read()
+        img = Image.open(BytesIO(contents))
+
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+
+        max_size = 1200
+        if max(img.size) > max_size:
+            ratio = max_size / max(img.size)
+            new_size = (int(img.size[0] * ratio), int(img.size[1] * ratio))
+            img = img.resize(new_size, Image.LANCZOS)
+
+        filename = f"claim_{report_id}_{current_user.id}_{uuid.uuid4().hex[:8]}.jpg"
+        filepath = os.path.join(UPLOAD_DIR, filename)
+        img.save(filepath, "JPEG", quality=75, optimize=True)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gagal memproses gambar: {str(e)}")
+
+    claim = crud.create_found_claim(
+        db=db, report_id=report_id, user_id=current_user.id,
+        deskripsi=deskripsi, bukti_path=filename,
+    )
+    return {
+        "id": claim.id, "report_id": claim.report_id, "user_id": claim.user_id,
+        "deskripsi": claim.deskripsi, "bukti_url": f"/uploads/{filename}",
+        "status": claim.status, "created_at": str(claim.created_at),
+        "user_nama": current_user.nama,
+        "message": "Klaim berhasil dikirim. Menunggu konfirmasi dari pemilik barang.",
+    }
+
+
+@app.patch("/reports/{report_id}/claims/{claim_id}/confirm", tags=["Kehilangan"])
+def konfirmasi_klaim(
+    report_id: int, claim_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Pemilik laporan mengkonfirmasi klaim menemukan barang."""
+    claim, error = crud.confirm_found_claim(db=db, claim_id=claim_id, report_id=report_id, owner_id=current_user.id)
+    if error == "claim_not_found":
+        raise HTTPException(status_code=404, detail="Klaim tidak ditemukan")
+    if error == "not_owner":
+        raise HTTPException(status_code=403, detail="Hanya pemilik laporan yang bisa mengkonfirmasi klaim")
+    return {"message": "Klaim dikonfirmasi. Barang sudah ditemukan!", "claim_id": claim.id}
+
+
+@app.patch("/reports/{report_id}/claims/{claim_id}/reject", tags=["Kehilangan"])
+def tolak_klaim(
+    report_id: int, claim_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Pemilik laporan menolak klaim menemukan barang."""
+    claim, error = crud.reject_found_claim(db=db, claim_id=claim_id, report_id=report_id, owner_id=current_user.id)
+    if error == "claim_not_found":
+        raise HTTPException(status_code=404, detail="Klaim tidak ditemukan")
+    if error == "not_owner":
+        raise HTTPException(status_code=403, detail="Hanya pemilik laporan yang bisa menolak klaim")
+    return {"message": "Klaim ditolak.", "claim_id": claim.id}
 
 
 # ==================== REPORTS (USER) ====================
@@ -206,68 +339,40 @@ def buat_laporan(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Buat laporan baru. **Membutuhkan autentikasi.**
-
-    - **judul**: Judul singkat laporan
-    - **deskripsi**: Deskripsi detail kejadian
-    - **kategori_id**: 1=Kehilangan, 2=Fasilitas, 3=Perundungan
-    - **lokasi**: Nama lokasi (teks)
-    - **latitude/longitude**: Koordinat peta (opsional)
-    - **anonim**: Sembunyikan identitas pelapor (otomatis True untuk perundungan)
-    """
-    # Validasi kategori
+    """Buat laporan baru."""
     category = crud.get_category(db, report_data.kategori_id)
     if not category:
         raise HTTPException(status_code=404, detail="Kategori tidak ditemukan")
-
     return crud.create_report(db=db, report_data=report_data, user_id=current_user.id)
 
 
 @app.get("/reports/map", response_model=list[MapReportResponse], tags=["Peta Sebaran"])
 def peta_sebaran(
-    status: str | None = Query(None, description="Filter: menunggu / diproses / selesai"),
-    kategori_id: int | None = Query(None, description="Filter berdasarkan ID kategori"),
+    status: str | None = Query(None),
+    kategori_id: int | None = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Ambil semua laporan yang memiliki koordinat untuk peta sebaran kampus ITK.
-    **Membutuhkan autentikasi.**
-
-    Response ringan — hanya field yang dibutuhkan untuk pin di peta.
-    Data pelapor tidak disertakan demi privasi.
-    """
+    """Ambil laporan dengan koordinat untuk peta sebaran."""
     return crud.get_map_reports(db=db, status=status, kategori_id=kategori_id)
 
 
 @app.get("/reports", response_model=ReportListResponse, tags=["Laporan"])
 def daftar_laporan(
-    skip: int = Query(0, ge=0, description="Offset pagination"),
-    limit: int = Query(20, ge=1, le=100, description="Jumlah per halaman"),
-    status: str | None = Query(None, description="Filter: menunggu / diproses / selesai"),
-    kategori_id: int | None = Query(None, description="Filter berdasarkan ID kategori"),
-    category: str | None = Query(None, description="Filter berdasarkan nama kategori: Kehilangan / Fasilitas / Perundungan"),
-    search: str | None = Query(None, description="Cari berdasarkan judul/deskripsi/lokasi"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    status: str | None = Query(None),
+    kategori_id: int | None = Query(None),
+    category: str | None = Query(None),
+    search: str | None = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Ambil daftar laporan milik user yang login. **Membutuhkan autentikasi.**
-
-    - User biasa hanya bisa lihat laporan sendiri
-    - Admin bisa lihat semua (gunakan `/admin/reports`)
-    """
+    """Ambil daftar laporan milik user yang login."""
     return crud.get_reports(
-        db=db,
-        skip=skip,
-        limit=limit,
-        user_id=current_user.id,
-        status=status,
-        kategori_id=kategori_id,
-        kategori_nama=category,
-        search=search,
-        is_admin=False,
+        db=db, skip=skip, limit=limit, user_id=current_user.id,
+        status=status, kategori_id=kategori_id, kategori_nama=category,
+        search=search, is_admin=False,
     )
 
 
@@ -277,15 +382,12 @@ def detail_laporan(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Ambil detail satu laporan. **Membutuhkan autentikasi.**"""
+    """Ambil detail satu laporan."""
     report = crud.get_report(db=db, report_id=report_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Laporan {report_id} tidak ditemukan")
-
-    # User biasa hanya bisa lihat laporan sendiri
     if current_user.role != "admin" and report.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Tidak memiliki akses ke laporan ini")
-
     return report
 
 
@@ -296,22 +398,14 @@ def edit_laporan(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Edit laporan milik sendiri. **Hanya bisa jika status masih 'menunggu'.**
-
-    - User hanya bisa edit laporan sendiri
-    - Laporan yang sudah diproses atau selesai tidak bisa diedit
-    """
+    """Edit laporan milik sendiri. Hanya bisa jika status masih 'menunggu'."""
     report, error = crud.update_report_by_user(
         db=db, report_id=report_id, user_id=current_user.id, report_data=report_data
     )
     if error == "not_found":
         raise HTTPException(status_code=404, detail="Laporan tidak ditemukan")
     if error == "not_allowed":
-        raise HTTPException(
-            status_code=403,
-            detail="Laporan hanya bisa diedit jika statusnya masih 'menunggu'",
-        )
+        raise HTTPException(status_code=403, detail="Laporan hanya bisa diedit jika statusnya masih 'menunggu'")
     return report
 
 
@@ -321,20 +415,12 @@ def hapus_laporan(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Hapus laporan milik sendiri. **Hanya bisa jika status masih 'menunggu'.**
-
-    - User hanya bisa hapus laporan sendiri
-    - Laporan yang sudah diproses atau selesai tidak bisa dihapus
-    """
+    """Hapus laporan milik sendiri. Hanya bisa jika status masih 'menunggu'."""
     success, error = crud.delete_report(db=db, report_id=report_id, user_id=current_user.id)
     if error == "not_found":
         raise HTTPException(status_code=404, detail="Laporan tidak ditemukan")
     if error == "not_allowed":
-        raise HTTPException(
-            status_code=403,
-            detail="Laporan hanya bisa dihapus jika statusnya masih 'menunggu'",
-        )
+        raise HTTPException(status_code=403, detail="Laporan hanya bisa dihapus jika statusnya masih 'menunggu'")
 
 
 # ==================== REPORT TRACKING (LOKASI) ====================
@@ -346,16 +432,12 @@ def tambah_lokasi_tracking(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Tambah titik tracking lokasi ke laporan (khusus Kehilangan). **Membutuhkan autentikasi.**
-    """
+    """Tambah titik tracking lokasi ke laporan."""
     report = crud.get_report(db=db, report_id=report_id)
     if not report:
         raise HTTPException(status_code=404, detail="Laporan tidak ditemukan")
-
     if current_user.role != "admin" and report.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Tidak memiliki akses ke laporan ini")
-
     return crud.add_report_location(db=db, report_id=report_id, location_data=location_data)
 
 
@@ -368,16 +450,12 @@ def tambah_komentar(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Tambah komentar/balasan dalam laporan. **Membutuhkan autentikasi.**
-    """
+    """Tambah komentar/balasan dalam laporan."""
     report = crud.get_report(db=db, report_id=report_id)
     if not report:
         raise HTTPException(status_code=404, detail="Laporan tidak ditemukan")
-
     if current_user.role != "admin" and report.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Tidak memiliki akses ke laporan ini")
-
     return crud.create_comment(db=db, report_id=report_id, user_id=current_user.id, comment_data=comment_data)
 
 
@@ -387,14 +465,12 @@ def daftar_komentar(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Ambil semua komentar dalam satu laporan. **Membutuhkan autentikasi.**"""
+    """Ambil semua komentar dalam satu laporan."""
     report = crud.get_report(db=db, report_id=report_id)
     if not report:
         raise HTTPException(status_code=404, detail="Laporan tidak ditemukan")
-
     if current_user.role != "admin" and report.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Tidak memiliki akses ke laporan ini")
-
     return crud.get_comments(db=db, report_id=report_id)
 
 
@@ -402,11 +478,11 @@ def daftar_komentar(
 
 @app.get("/notifications", response_model=list[NotificationResponse], tags=["Notifikasi"])
 def daftar_notifikasi(
-    unread_only: bool = Query(False, description="Hanya tampilkan yang belum dibaca"),
+    unread_only: bool = Query(False),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Ambil notifikasi user yang login. **Membutuhkan autentikasi.**"""
+    """Ambil notifikasi user yang login."""
     return crud.get_notifications(db=db, user_id=current_user.id, unread_only=unread_only)
 
 
@@ -416,7 +492,7 @@ def tandai_notifikasi_dibaca(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Tandai notifikasi sebagai sudah dibaca. **Membutuhkan autentikasi.**"""
+    """Tandai notifikasi sebagai sudah dibaca."""
     notif = crud.mark_notification_read(db=db, notification_id=notification_id, user_id=current_user.id)
     if not notif:
         raise HTTPException(status_code=404, detail="Notifikasi tidak ditemukan")
@@ -431,13 +507,7 @@ def submit_feedback(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Submit rating & feedback setelah laporan selesai. **Membutuhkan autentikasi.**
-
-    - **report_id**: ID laporan yang sudah selesai
-    - **rating**: 1-5 bintang
-    - **komentar**: Komentar opsional
-    """
+    """Submit rating & feedback setelah laporan selesai."""
     report = crud.get_report(db=db, report_id=feedback_data.report_id)
     if not report:
         raise HTTPException(status_code=404, detail="Laporan tidak ditemukan")
@@ -453,7 +523,7 @@ def dashboard_statistik(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """Statistik dashboard admin. **Hanya admin.**"""
+    """Statistik dashboard admin."""
     return crud.get_dashboard_stats(db)
 
 
@@ -463,21 +533,16 @@ def semua_laporan(
     limit: int = Query(20, ge=1, le=100),
     status: str | None = Query(None),
     kategori_id: int | None = Query(None),
-    category: str | None = Query(None, description="Filter berdasarkan nama kategori: Kehilangan / Fasilitas / Perundungan"),
+    category: str | None = Query(None),
     search: str | None = Query(None),
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """Ambil semua laporan (dari semua user). **Hanya admin.**"""
+    """Ambil semua laporan (dari semua user). Hanya admin."""
     return crud.get_reports(
-        db=db,
-        skip=skip,
-        limit=limit,
-        status=status,
-        kategori_id=kategori_id,
-        kategori_nama=category,
-        search=search,
-        is_admin=True,
+        db=db, skip=skip, limit=limit, status=status,
+        kategori_id=kategori_id, kategori_nama=category,
+        search=search, is_admin=True,
     )
 
 
@@ -488,12 +553,7 @@ def update_laporan(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """
-    Update status, prioritas, atau detail laporan. **Hanya admin.**
-
-    - **status**: menunggu / diproses / selesai
-    - **prioritas**: tinggi / sedang / rendah
-    """
+    """Update status, prioritas, atau detail laporan. Hanya admin."""
     updated = crud.update_report(db=db, report_id=report_id, report_data=report_data, changed_by=admin.id)
     if not updated:
         raise HTTPException(status_code=404, detail=f"Laporan {report_id} tidak ditemukan")
@@ -507,17 +567,59 @@ def assign_unit(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """
-    Tugaskan laporan ke unit penanganan. **Hanya admin.**
-
-    - **unit_id**: ID unit yang ditugaskan
-    """
+    """Tugaskan laporan ke unit penanganan. Hanya admin."""
     report = crud.get_report(db=db, report_id=report_id)
     if not report:
         raise HTTPException(status_code=404, detail="Laporan tidak ditemukan")
-
     unit = db.query(Unit).filter(Unit.id == assignment_data.unit_id).first()
     if not unit:
         raise HTTPException(status_code=404, detail="Unit tidak ditemukan")
-
     return crud.assign_report(db=db, report_id=report_id, assignment_data=assignment_data, admin_id=admin.id)
+
+
+# ==================== ADMIN USER MANAGEMENT ====================
+
+@app.get("/admin/users", response_model=AdminUserListResponse, tags=["Admin - Pengguna"])
+def daftar_pengguna(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    search: str | None = Query(None),
+    role: str | None = Query(None),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Ambil daftar semua pengguna. Hanya admin."""
+    return crud.get_all_users(db=db, skip=skip, limit=limit, search=search, role=role)
+
+
+@app.patch("/admin/users/{user_id}/toggle-active", response_model=AdminUserResponse, tags=["Admin - Pengguna"])
+def toggle_aktif_pengguna(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Toggle aktif/nonaktif pengguna. Hanya admin."""
+    if user_id == admin.id:
+        raise HTTPException(status_code=400, detail="Tidak bisa menonaktifkan akun sendiri")
+    user = crud.toggle_user_active(db=db, user_id=user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User tidak ditemukan")
+    tr = db.query(Report).filter(Report.user_id == user_id).count()
+    return {
+        "id": user.id, "email": user.email, "nama": user.nama, "role": user.role,
+        "no_hp": user.no_hp, "is_active": user.is_active, "created_at": user.created_at,
+        "total_reports": tr,
+    }
+
+
+@app.post("/admin/users/{user_id}/reset-password", tags=["Admin - Pengguna"])
+def reset_password_pengguna(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Reset password pengguna ke default: Reset@123. Hanya admin."""
+    user = crud.reset_user_password(db=db, user_id=user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User tidak ditemukan")
+    return {"message": f"Password user '{user.nama}' berhasil di-reset ke default (Reset@123)."}
