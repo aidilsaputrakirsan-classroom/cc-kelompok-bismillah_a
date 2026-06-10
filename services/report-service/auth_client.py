@@ -12,7 +12,7 @@ import time
 import asyncio
 import logging
 import httpx
-from fastapi import HTTPException, Header
+from fastapi import HTTPException, Header, Request
 
 from circuit_breaker import CircuitBreaker
 
@@ -41,9 +41,10 @@ auth_circuit = CircuitBreaker(
 )
 
 
-async def _call_auth_service(authorization: str) -> dict:
+async def _call_auth_service(authorization: str, correlation_id: str = None) -> dict:
     """
     Internal: Panggil Auth Service dengan Circuit Breaker + Retry Exponential Backoff.
+    Meneruskan correlation ID ke Auth Service agar log bisa dihubungkan (Workshop 14.2).
 
     Flow:
     1. Cek circuit breaker — jika OPEN, langsung tolak (fail fast)
@@ -52,11 +53,17 @@ async def _call_auth_service(authorization: str) -> dict:
     """
     # --- Circuit Breaker Check ---
     if not auth_circuit.can_execute():
-        logger.warning("[auth_client] Circuit breaker OPEN — request ditolak langsung (fail fast)")
+        logger.warning("[auth_client] Circuit breaker OPEN — request ditolak langsung (fail fast)",
+                       extra={"correlation_id": correlation_id})
         raise HTTPException(
             status_code=503,
             detail="Auth Service circuit breaker OPEN. Silakan coba beberapa saat lagi.",
         )
+
+    # Siapkan headers — teruskan correlation ID jika ada
+    headers = {"Authorization": authorization}
+    if correlation_id:
+        headers["X-Correlation-ID"] = correlation_id
 
     last_exception = None
 
@@ -65,14 +72,17 @@ async def _call_auth_service(authorization: str) -> dict:
             async with httpx.AsyncClient() as client:
                 response = await client.get(
                     f"{AUTH_SERVICE_URL}/verify",
-                    headers={"Authorization": authorization},
+                    headers=headers,
                     timeout=TIMEOUT_SECONDS,
                 )
 
             # ✅ Sukses
             if response.status_code == 200:
                 auth_circuit.record_success()
-                logger.info(f"[auth_client] Auth verified (attempt {attempt}/{MAX_RETRIES})")
+                logger.info(
+                    f"[auth_client] Auth verified (attempt {attempt}/{MAX_RETRIES})",
+                    extra={"correlation_id": correlation_id},
+                )
                 return response.json()
 
             # ❌ Non-retryable: token salah — catat service responsif, langsung gagal
@@ -88,7 +98,8 @@ async def _call_auth_service(authorization: str) -> dict:
             if response.status_code in RETRYABLE_STATUS_CODES:
                 logger.warning(
                     f"[auth_client] Auth Service returned {response.status_code} "
-                    f"(attempt {attempt}/{MAX_RETRIES})"
+                    f"(attempt {attempt}/{MAX_RETRIES})",
+                    extra={"correlation_id": correlation_id},
                 )
                 last_exception = HTTPException(
                     status_code=response.status_code,
@@ -103,26 +114,34 @@ async def _call_auth_service(authorization: str) -> dict:
         except httpx.ConnectError as e:
             logger.warning(
                 f"[auth_client] Tidak bisa terhubung ke Auth Service "
-                f"(attempt {attempt}/{MAX_RETRIES}): {e}"
+                f"(attempt {attempt}/{MAX_RETRIES}): {e}",
+                extra={"correlation_id": correlation_id},
             )
             last_exception = e
 
         except httpx.TimeoutException as e:
             logger.warning(
                 f"[auth_client] Auth Service timeout "
-                f"(attempt {attempt}/{MAX_RETRIES}): {e}"
+                f"(attempt {attempt}/{MAX_RETRIES}): {e}",
+                extra={"correlation_id": correlation_id},
             )
             last_exception = e
 
         # Exponential backoff sebelum retry berikutnya
         if attempt < MAX_RETRIES:
             delay = BASE_DELAY * (2 ** (attempt - 1))  # 0.5s → 1.0s → 2.0s
-            logger.info(f"[auth_client] Retrying in {delay}s... (attempt {attempt}/{MAX_RETRIES})")
+            logger.info(
+                f"[auth_client] Retrying in {delay}s... (attempt {attempt}/{MAX_RETRIES})",
+                extra={"correlation_id": correlation_id},
+            )
             await asyncio.sleep(delay)
 
     # Semua retry habis → record failure di circuit breaker
     auth_circuit.record_failure()
-    logger.error(f"[auth_client] Auth Service tidak bisa dijangkau setelah {MAX_RETRIES} percobaan")
+    logger.error(
+        f"[auth_client] Auth Service tidak bisa dijangkau setelah {MAX_RETRIES} percobaan",
+        extra={"correlation_id": correlation_id},
+    )
     raise HTTPException(
         status_code=503,
         detail="Auth Service tidak tersedia. Silakan coba beberapa saat lagi.",
@@ -130,28 +149,31 @@ async def _call_auth_service(authorization: str) -> dict:
 
 
 async def verify_token_with_auth_service(
+    request: Request,
     authorization: str = Header(...),
 ) -> dict:
     """
     FastAPI Dependency: Verifikasi token via Auth Service.
-    Dengan retry logic, circuit breaker, dan proper error handling.
+    Meneruskan correlation ID dari request.state agar log bisa dihubungkan antar service.
 
     Returns: dict dengan keys: user_id, email, nama, role
     """
     if not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Invalid authorization header format")
 
-    return await _call_auth_service(authorization)
+    correlation_id = getattr(request.state, "correlation_id", None)
+    return await _call_auth_service(authorization, correlation_id)
 
 
 async def require_admin_from_auth_service(
+    request: Request,
     authorization: str = Header(...),
 ) -> dict:
     """
     FastAPI Dependency: Verifikasi token DAN pastikan user adalah admin.
-    Dengan retry logic dan circuit breaker.
+    Dengan retry logic, circuit breaker, dan correlation ID tracing.
     """
-    user = await verify_token_with_auth_service(authorization)
+    user = await verify_token_with_auth_service(request, authorization)
     if user.get("role") != "admin":
         raise HTTPException(
             status_code=403,

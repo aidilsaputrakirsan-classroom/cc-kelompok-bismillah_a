@@ -45,6 +45,9 @@ from schemas import (
     KehilanganPublicResponse, KehilanganPublicListResponse, FoundClaimResponse,
 )
 from auth_client import verify_token_with_auth_service, require_admin_from_auth_service, auth_circuit
+from logging_config import setup_logging
+from logging_middleware import RequestLoggingMiddleware
+from metrics import metrics
 import crud
 
 # Upload dir untuk foto bukti penemuan
@@ -98,11 +101,8 @@ async def _build_kehilangan_response(report, user: dict | None = None) -> dict:
     }
 
 
-# Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
+# Setup structured JSON logging
+setup_logging()
 logger = logging.getLogger(__name__)
 
 # Create tables
@@ -123,6 +123,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Logging middleware — log setiap request + correlation ID + metrics
+app.add_middleware(RequestLoggingMiddleware)
 
 # Mount static folder untuk uploads bukti penemuan
 from pathlib import Path
@@ -201,6 +204,15 @@ async def health_check():
                 "status": db_status,
             },
         },
+    }
+
+
+@app.get("/metrics")
+def get_metrics():
+    """Return application metrics: request count, error rate, latency percentiles."""
+    return {
+        "service": "report-service",
+        **metrics.get_metrics(),
     }
 
 

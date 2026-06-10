@@ -87,6 +87,12 @@ services:
       CORS_ORIGINS: "http://localhost,http://localhost:5173,http://localhost:3000"
       SERVICE_NAME: auth-service
       LOG_LEVEL: INFO
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "auth-service"
     depends_on:
       auth-db:
         condition: service_healthy
@@ -123,6 +129,12 @@ services:
       CORS_ORIGINS: "http://localhost,http://localhost:5173,http://localhost:3000"
       SERVICE_NAME: report-service
       LOG_LEVEL: INFO
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "report-service"
     depends_on:
       report-db:
         condition: service_healthy

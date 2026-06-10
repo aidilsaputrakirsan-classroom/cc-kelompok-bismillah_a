@@ -14,6 +14,7 @@ import AdminKelolaUsersPage from "./pages/AdminKelolaUsersPage";
 import PetaSebaranPage from "./pages/PetaSebaranPage";
 import DaftarKehilanganPage from "./pages/DaftarKehilanganPage";
 import DetailKehilanganPage from "./pages/DetailKehilanganPage";
+import StatusPage from "./pages/StatusPage";
 
 // ============================================================
 // ROUTE GUARDS
@@ -220,6 +221,9 @@ export default function App() {
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
+
+        {/* System Status — public, tidak perlu auth (Modul 14) */}
+        <Route path="/status" element={<StatusPage />} />
         </Routes>
       </BrowserRouter>
     </ServiceStatusProvider>
