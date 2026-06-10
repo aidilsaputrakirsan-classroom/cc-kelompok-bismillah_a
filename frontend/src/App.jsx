@@ -229,6 +229,9 @@ export default function App() {
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
+
+        {/* System Status — public, tidak perlu auth (Modul 14) */}
+        <Route path="/status" element={<StatusPage />} />
         </Routes>
       </BrowserRouter>
     </ServiceStatusProvider>

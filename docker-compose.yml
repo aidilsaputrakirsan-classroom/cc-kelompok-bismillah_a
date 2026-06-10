@@ -85,6 +85,14 @@ services:
       ALGORITHM: HS256
       TOKEN_EXPIRE_MINUTES: "60"
       CORS_ORIGINS: "http://localhost,http://localhost:5173,http://localhost:3000"
+      SERVICE_NAME: auth-service
+      LOG_LEVEL: INFO
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "auth-service"
     depends_on:
       auth-db:
         condition: service_healthy
@@ -96,6 +104,12 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "auth-service"
     deploy:
       resources:
         limits:
@@ -113,6 +127,14 @@ services:
       DATABASE_URL: postgresql://postgres:aditya221004@report-db:5432/report_db
       AUTH_SERVICE_URL: http://auth-service:8001
       CORS_ORIGINS: "http://localhost,http://localhost:5173,http://localhost:3000"
+      SERVICE_NAME: report-service
+      LOG_LEVEL: INFO
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "report-service"
     depends_on:
       report-db:
         condition: service_healthy
@@ -128,6 +150,12 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "report-service"
     deploy:
       resources:
         limits:

@@ -1,24 +1,91 @@
 # ============================================================
 # Docker Compose — Production Overrides
+# LaporIn ITK — Tim Bismillah_A
 # ============================================================
 # Gunakan bersama docker-compose.yml:
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Atau via Makefile:
+#   make prod
+#
+# Perbedaan dari development:
+# - Database ports TIDAK diexpose ke host (keamanan)
+# - restart: always (bukan unless-stopped)
+# - Resource limits lebih ketat
+# - Log level: WARNING (hanya log penting)
+# - DEBUG mode dimatikan
+# - CORS hanya mengizinkan domain production
 # ============================================================
 
 services:
-  # ==================== DATABASE ====================
-  db:
-    restart: always                                    # Selalu restart otomatis di production
-    # Tidak expose port ke host di production (keamanan)
-    ports: !reset []
+  # ================================
+  # DATABASES — Tidak expose port
+  # ================================
+  auth-db:
+    restart: always
+    # Tidak expose port di production (keamanan)
 
-  # ==================== BACKEND ====================
-  backend:
+  report-db:
+    restart: always
+    # Tidak expose port di production (keamanan)
+
+  # ================================
+  # BACKEND SERVICES — Production config
+  # ================================
+  auth-service:
     restart: always
     environment:
-      - DEBUG=false                                    # Nonaktifkan debug mode
-      - CORS_ORIGINS=https://yourdomain.com            # Ganti dengan domain production
+      DEBUG: "false"
+      LOG_LEVEL: WARNING
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://yourdomain.com}
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
 
-  # ==================== FRONTEND ====================
+  report-service:
+    restart: always
+    environment:
+      DEBUG: "false"
+      LOG_LEVEL: WARNING
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://yourdomain.com}
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+
+  # ================================
+  # FRONTEND — Production config
+  # ================================
   frontend:
     restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+        reservations:
+          cpus: "0.10"
+          memory: 64M
+
+  # ================================
+  # GATEWAY — Production config
+  # ================================
+  gateway:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+        reservations:
+          cpus: "0.10"
+          memory: 64M

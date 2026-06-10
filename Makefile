@@ -1,4 +1,4 @@
-.PHONY: up down build logs ps clean restart lint test pr-check logs-auth logs-report logs-gateway shell-auth shell-report shell-auth-db shell-report-db seed-admin
+.PHONY: up down build logs ps clean restart lint test pr-check logs-auth logs-report logs-gateway shell-auth shell-report shell-auth-db shell-report-db seed-admin dev prod prod-down logs-backend logs-errors status
 
 COMPOSE = docker compose
 
@@ -120,4 +120,45 @@ seed-all: seed-admin seed-reports
 
 # Build ulang lalu seed semua
 build-seed-all: build seed-all
+
+# ─────────────────────────────────────────────
+# Environment-specific targets (Modul 14)
+# ─────────────────────────────────────────────
+
+# Start di mode development (hot-reload, expose DB ports)
+dev:
+	@echo "🔧 Starting in DEVELOPMENT mode (hot-reload)..."
+	$(COMPOSE) -f docker-compose.yml -f docker-compose.dev.yml up --build
+
+# Start di mode production (no exposed ports, strict limits)
+prod:
+	@echo "🚀 Starting in PRODUCTION mode..."
+	$(COMPOSE) -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+
+# Stop production
+prod-down:
+	$(COMPOSE) -f docker-compose.yml -f docker-compose.prod.yml down
+
+# ─────────────────────────────────────────────
+# Monitoring & Observability (Modul 14)
+# ─────────────────────────────────────────────
+
+# Lihat log kedua backend services (follow mode)
+logs-backend:
+	$(COMPOSE) logs -f auth-service report-service
+
+# Lihat hanya log ERROR dari backend
+logs-errors:
+	$(COMPOSE) logs auth-service report-service 2>&1 | grep '"level":"ERROR"'
+
+# Cek health semua services
+status:
+	@echo "🏥 Checking service health..."
+	@echo ""
+	@echo -n "  Gateway:        " && curl -s http://localhost/health 2>/dev/null && echo "" || echo "❌ unreachable"
+	@echo -n "  Auth Service:   " && curl -s http://localhost/auth/health 2>/dev/null && echo "" || echo "❌ unreachable"
+	@echo -n "  Report Service: " && curl -s http://localhost/reports/health 2>/dev/null && echo "" || echo "❌ unreachable"
+	@echo ""
+	@echo "📊 Container status:"
+	@$(COMPOSE) ps
 
