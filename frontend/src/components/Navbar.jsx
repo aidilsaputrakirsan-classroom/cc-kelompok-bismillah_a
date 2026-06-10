@@ -93,6 +93,7 @@ export default function Navbar() {
                   <li><Link to="/admin/laporan" className={isActive("/admin/laporan")}>Kelola Laporan</Link></li>
                   <li><Link to="/admin/users" className={isActive("/admin/users")}>Kelola Pengguna</Link></li>
                   <li><Link to="/peta" className={isActive("/peta")}>🗺️ Peta</Link></li>
+                  <li><Link to="/status" className={isActive("/status")}>📊 Status</Link></li>
                 </>
               ) : (
                 <>
@@ -100,6 +101,7 @@ export default function Navbar() {
                   <li><Link to="/laporan/buat" className={isActive("/laporan/buat")}>Buat Laporan</Link></li>
                   <li><Link to="/kehilangan" className={isActive("/kehilangan")}>Daftar Kehilangan</Link></li>
                   <li><Link to="/peta" className={isActive("/peta")}>🗺️ Peta</Link></li>
+                  <li><Link to="/status" className={isActive("/status")}>📊 Status</Link></li>
                 </>
               )}
             </ul>
@@ -180,6 +182,7 @@ export default function Navbar() {
                 <Link to="/admin/laporan" className={isActive("/admin/laporan")}>📋 Kelola Laporan</Link>
                 <Link to="/admin/users" className={isActive("/admin/users")}>👥 Kelola Pengguna</Link>
                 <Link to="/peta" className={isActive("/peta")}>🗺️ Peta Sebaran</Link>
+                <Link to="/status" className={isActive("/status")}>📡 System Status</Link>
               </>
             ) : (
               <>
@@ -187,6 +190,7 @@ export default function Navbar() {
                 <Link to="/laporan/buat" className={isActive("/laporan/buat")}>➕ Buat Laporan</Link>
                 <Link to="/kehilangan" className={isActive("/kehilangan")}>🔍 Daftar Kehilangan</Link>
                 <Link to="/peta" className={isActive("/peta")}>🗺️ Peta Sebaran</Link>
+                <Link to="/status" className={isActive("/status")}>📡 System Status</Link>
               </>
             )}
 

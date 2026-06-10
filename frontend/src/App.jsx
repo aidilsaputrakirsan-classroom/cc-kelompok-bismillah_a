@@ -14,6 +14,7 @@ import AdminKelolaUsersPage from "./pages/AdminKelolaUsersPage";
 import PetaSebaranPage from "./pages/PetaSebaranPage";
 import DaftarKehilanganPage from "./pages/DaftarKehilanganPage";
 import DetailKehilanganPage from "./pages/DetailKehilanganPage";
+import StatusPage from "./pages/StatusPage";
 
 // ============================================================
 // ROUTE GUARDS
@@ -216,6 +217,14 @@ export default function App() {
             <Navbar />
             <AdminKelolaUsersPage />
           </RequireAdmin>
+        } />
+
+        {/* Status Page — accessible to all logged-in users */}
+        <Route path="/status" element={
+          <RequireAuth>
+            <Navbar />
+            <StatusPage />
+          </RequireAuth>
         } />
 
         {/* Fallback */}
