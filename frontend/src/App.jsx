@@ -219,6 +219,14 @@ export default function App() {
           </RequireAdmin>
         } />
 
+        {/* Status Page — accessible to all logged-in users */}
+        <Route path="/status" element={
+          <RequireAuth>
+            <Navbar />
+            <StatusPage />
+          </RequireAuth>
+        } />
+
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
 
