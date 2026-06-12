@@ -408,7 +408,203 @@ gateway             running
 
 ---
 
-## 8. Conclusion
+## 8. Mekanisme Ketahanan Sistem (Resilience)
 
-Arsitektur microservices pada aplikasi LAPORin ITK berhasil diimplementasikan dengan memisahkan Authentication Service dan Report Service ke dalam layanan yang independen. API Gateway berfungsi sebagai pintu masuk utama aplikasi, sedangkan setiap service memiliki database masing-masing sehingga komunikasi antar layanan menjadi lebih terstruktur. Pengujian menunjukkan bahwa proses registrasi, login, verifikasi token, pembuatan laporan, pengelolaan laporan, dan komunikasi antar service berjalan dengan baik.
+Bagian ini menjelaskan mekanisme ketahanan (_resilience_) yang diimplementasikan untuk memastikan sistem tetap beroperasi secara terbatas bahkan ketika Auth Service mengalami kegagalan. Mekanisme ini mencakup **Retry dengan Exponential Backoff**, **Circuit Breaker**, dan **Graceful Degradation**.
+
+---
+
+### 8.1 Komponen Resilience
+
+| Komponen | Implementasi | Lokasi |
+|----------|-------------|--------|
+| **Retry Logic** | 3× percobaan, exponential backoff (0.5s → 1.0s → 2.0s) | `services/report-service/auth_client.py` |
+| **Circuit Breaker** | 3 state: CLOSED → OPEN → HALF_OPEN | `services/report-service/circuit_breaker.py` |
+| **Graceful Degradation** | Endpoint stats & public tanpa auth | `services/report-service/main.py` |
+| **Health Check** | Status agregat termasuk CB state & DB | `GET /reports/health` |
+
+---
+
+### 8.2 State Machine Circuit Breaker
+
+Circuit Breaker memiliki tiga state yang bertransisi berdasarkan jumlah kegagalan dan waktu cooldown:
+
+```mermaid
+stateDiagram-v2
+    direction LR
+
+    [*] --> CLOSED : Inisialisasi
+
+    CLOSED --> CLOSED : Request berhasil\n(record_success)
+    CLOSED --> OPEN : 5× kegagalan berturut\n(failure_threshold tercapai)
+
+    OPEN --> OPEN : Request ditolak langsung\n(fail fast, < 10ms)
+    OPEN --> HALF_OPEN : Cooldown 30 detik selesai
+
+    HALF_OPEN --> CLOSED : 1 request test berhasil\n(recovery)
+    HALF_OPEN --> OPEN : 1 request test gagal\n(kembali OPEN)
+```
+
+---
+
+### 8.3 Alur Saat Auth Service Down — Sequence Diagram
+
+Diagram berikut menggambarkan alur lengkap dari sudut pandang klien ketika Auth Service mati, bagaimana Report Service mendeteksi kegagalan, membuka circuit breaker, dan beralih ke Degraded Mode untuk melayani endpoint yang tidak membutuhkan autentikasi.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client as Client / Frontend
+    participant GW as API Gateway (Nginx :80)
+    participant RS as Report Service (:8002)
+    participant CB as Circuit Breaker
+    participant AS as Auth Service (:8001)
+
+    Note over AS: ❌ Auth Service DOWN (crash / stop)
+
+    rect rgb(255, 235, 235)
+        Note over Client,AS: Phase 1 — Deteksi Kegagalan (CB: CLOSED)
+
+        Client->>GW: GET /reports (Authorization: Bearer TOKEN)
+        GW->>RS: Proxy request
+        RS->>CB: can_execute() ?
+        CB-->>RS: ✅ true (state: CLOSED)
+        RS->>AS: GET /verify (attempt 1/3)
+        AS--xRS: ❌ ConnectError / Timeout
+        Note over RS: Retry wait: 0.5s
+        RS->>AS: GET /verify (attempt 2/3)
+        AS--xRS: ❌ ConnectError / Timeout
+        Note over RS: Retry wait: 1.0s
+        RS->>AS: GET /verify (attempt 3/3)
+        AS--xRS: ❌ ConnectError / Timeout
+        RS->>CB: record_failure() — failure_count: 1
+        RS-->>GW: HTTP 503 "Auth Service tidak tersedia"
+        GW-->>Client: HTTP 503
+    end
+
+    Note over CB: [Setelah 5× kegagalan berturut] failure_count ≥ 5
+
+    rect rgb(255, 220, 180)
+        Note over Client,AS: Phase 2 — Circuit Breaker OPEN (Fail Fast)
+
+        CB->>CB: state: CLOSED → OPEN
+        Note over CB: Mencatat last_failure_time
+
+        Client->>GW: GET /reports (request baru)
+        GW->>RS: Proxy request
+        RS->>CB: can_execute() ?
+        CB-->>RS: ❌ false (state: OPEN, cooldown belum habis)
+        RS-->>GW: HTTP 503 "Circuit breaker OPEN" (< 10ms)
+        GW-->>Client: HTTP 503 (fail fast)
+    end
+
+    rect rgb(220, 255, 220)
+        Note over Client,AS: Phase 3 — Degraded Mode Aktif
+
+        Client->>GW: GET /reports/stats (tanpa / dengan token)
+        GW->>RS: Proxy request
+        RS->>CB: get_status() → state: OPEN
+        Note over RS: Degraded Mode diaktifkan
+        RS->>RS: crud.get_global_stats() (langsung ke DB)
+        RS-->>GW: HTTP 200 {degraded: true, data: ...}
+        GW-->>Client: HTTP 200 (statistik global)
+
+        Client->>GW: GET /reports/public
+        GW->>RS: Proxy request (no auth required)
+        RS->>RS: crud.get_public_reports() (langsung ke DB)
+        RS-->>GW: HTTP 200 (laporan publik)
+        GW-->>Client: HTTP 200 ✅
+    end
+
+    rect rgb(200, 230, 255)
+        Note over Client,AS: Phase 4 — Recovery (Auth Service UP kembali)
+
+        Note over AS: ✅ Auth Service START kembali
+        Note over CB: [30 detik cooldown berlalu]
+        CB->>CB: state: OPEN → HALF_OPEN
+
+        Client->>GW: GET /reports/stats (dengan token)
+        GW->>RS: Proxy request
+        RS->>CB: can_execute() ?
+        CB-->>RS: ✅ true (state: HALF_OPEN, izinkan 1 request test)
+        RS->>AS: GET /verify (request test recovery)
+        AS-->>RS: HTTP 200 ✅ {user_id, email, ...}
+        RS->>CB: record_success()
+        CB->>CB: state: HALF_OPEN → CLOSED
+        RS-->>GW: HTTP 200 {degraded: false, stats: ...}
+        GW-->>Client: HTTP 200 (sistem kembali normal) ✅
+    end
+```
+
+---
+
+### 8.4 Endpoint dalam Degraded Mode
+
+Ketika Circuit Breaker dalam keadaan **OPEN**, endpoint Report Service berperilaku sebagai berikut:
+
+```mermaid
+flowchart TD
+    REQ[/"Client Request"/]
+    CB{"Circuit Breaker\nState?"}
+
+    REQ --> CB
+
+    CB -->|"CLOSED\n(Normal)"| AUTH_VERIFY["Verifikasi token\nke Auth Service"]
+    AUTH_VERIFY --> FULL["✅ Full Response\n(data user spesifik)"]
+
+    CB -->|"OPEN\n(Auth DOWN)"| CHECK_ENDPOINT{"Endpoint\nType?"}
+
+    CHECK_ENDPOINT -->|"GET /reports/stats\n(opsional auth)"| DEGRADED["⚠️ Degraded Mode\nGlobal stats semua laporan\ndegraded: true"]
+
+    CHECK_ENDPOINT -->|"GET /reports/public\n(no auth)"| PUBLIC["✅ Public Mode\nLaporan publik\ntanpa perubahan"]
+
+    CHECK_ENDPOINT -->|"Endpoint lain\n(requires auth)"| REJECT["❌ HTTP 503\nCircuit Breaker OPEN\nFail Fast"]
+
+    style FULL fill:#d4edda,stroke:#28a745,color:#000
+    style DEGRADED fill:#fff3cd,stroke:#ffc107,color:#000
+    style PUBLIC fill:#d4edda,stroke:#28a745,color:#000
+    style REJECT fill:#f8d7da,stroke:#dc3545,color:#000
+```
+
+---
+
+### 8.5 Konfigurasi Resilience
+
+Parameter resilience dapat dikonfigurasi melalui environment variable atau langsung di source code:
+
+```python
+# services/report-service/auth_client.py
+
+MAX_RETRIES = 3          # Jumlah percobaan maksimal
+BASE_DELAY = 0.5         # Delay awal exponential backoff (detik)
+TIMEOUT_SECONDS = 5.0    # Timeout per request ke Auth Service
+
+# services/report-service/circuit_breaker.py (instance di auth_client.py)
+auth_circuit = CircuitBreaker(
+    name="auth-service",
+    failure_threshold=5,    # Kegagalan berturut sebelum OPEN
+    cooldown_seconds=30,    # Waktu tunggu sebelum HALF_OPEN
+)
+```
+
+**Total waktu tunggu maksimal (worst case) sebelum HTTP 503 dikembalikan ke klien:**
+
+```
+(TIMEOUT_SECONDS × MAX_RETRIES) + (BASE_DELAY × (2^0 + 2^1))
+= (5.0 × 3) + (0.5 + 1.0 + 2.0)
+= 15.0 + 3.5
+= 18.5 detik
+```
+
+Setelah circuit breaker OPEN, seluruh request yang memerlukan auth dijawab dalam **< 10ms** (fail fast).
+
+---
+
+## 9. Conclusion
+
+Arsitektur microservices pada aplikasi LAPORin ITK berhasil diimplementasikan dengan memisahkan Authentication Service dan Report Service ke dalam layanan yang independen. API Gateway berfungsi sebagai pintu masuk utama aplikasi, sedangkan setiap service memiliki database masing-masing sehingga komunikasi antar layanan menjadi lebih terstruktur.
+
+Sistem dilengkapi dengan mekanisme ketahanan (_resilience_) yang komprehensif: **retry logic dengan exponential backoff**, **circuit breaker tiga-state**, dan **graceful degradation** pada endpoint kritis. Mekanisme ini memastikan sistem tetap dapat melayani pengguna secara terbatas (Degraded Mode) bahkan saat Auth Service mengalami kegagalan, serta pulih secara otomatis tanpa intervensi manual setelah Auth Service kembali beroperasi.
+
+Pengujian menunjukkan bahwa proses registrasi, login, verifikasi token, pembuatan laporan, pengelolaan laporan, komunikasi antar service, dan skenario failure recovery berjalan dengan baik sesuai rancangan.
 
