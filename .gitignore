@@ -20,3 +20,6 @@ script/
 .vscode/
 .idea/
 *.db
+
+# Upload files (user-generated content, jangan commit ke git)
+backend/uploads/
