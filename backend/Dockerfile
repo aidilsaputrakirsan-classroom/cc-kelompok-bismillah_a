@@ -43,7 +43,11 @@ COPY . .
 RUN chmod +x scripts/wait-for-db.sh
 
 # Non-root user (keamanan)
-RUN useradd -m -r appuser && chown -R appuser:appuser /app
+# Buat folder uploads sebagai root (ada permission), lalu serahkan ke appuser
+RUN useradd -m -r appuser && \
+    mkdir -p /app/uploads && \
+    chmod 775 /app/uploads && \
+    chown -R appuser:appuser /app
 USER appuser
 
 # Healthcheck — Docker akan cek apakah backend responsive
