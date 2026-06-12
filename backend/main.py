@@ -703,4 +703,4 @@ def hapus_pengguna_oleh_admin(
     if error == "not_found":
         raise HTTPException(status_code=404, detail="User tidak ditemukan")
     if error == "cannot_delete_self":
-        raise HTTPException(status_code=400, detail="Admin tidak bisa menghapus akun sendiri")
+        raise HTTPException(status_code=400, detail="Admin tidak bisa menghapus akun sendiri")
