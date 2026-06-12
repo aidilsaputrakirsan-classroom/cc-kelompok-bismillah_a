@@ -56,12 +56,24 @@ load_dotenv()
 Base.metadata.create_all(bind=engine)
 
 # Buat folder uploads jika belum ada
-UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 try:
-    os.chmod(UPLOAD_DIR, 0o777)  # pastikan writable oleh Uvicorn
+    os.chmod(UPLOAD_DIR, 0o775)  # pastikan writable oleh Uvicorn
 except OSError:
     pass
+
+# Verifikasi folder uploads benar-benar writable saat startup
+def _check_upload_dir_writable(path: str) -> bool:
+    """Test apakah direktori bisa ditulis dengan benar-benar membuat file temp."""
+    test_file = os.path.join(path, ".write_test")
+    try:
+        with open(test_file, "w") as f:
+            f.write("ok")
+        os.remove(test_file)
+        return True
+    except (OSError, PermissionError):
+        return False
 
 app = FastAPI(
     title=settings.APP_TITLE,
@@ -95,6 +107,16 @@ def startup_event():
     """Seed data awal dan log konfigurasi aktif saat startup."""
     logger.info(f"🚀 LaporIn ITK starting up — environment: {settings.ENVIRONMENT}")
     logger.info(f"⚙️  Config: {settings.summary()}")
+
+    # Cek writability folder uploads saat startup
+    if _check_upload_dir_writable(UPLOAD_DIR):
+        logger.info(f"✅ Upload dir OK dan writable: {UPLOAD_DIR}")
+    else:
+        logger.error(
+            f"❌ Upload dir TIDAK writable: {UPLOAD_DIR} — "
+            "Jalankan: sudo chmod 775 backend/uploads && sudo chown -R $USER backend/uploads"
+        )
+
     db = next(get_db())
     try:
         crud.seed_categories(db)
@@ -277,7 +299,15 @@ async def klaim_menemukan_barang(
     # Baca dan kompresi gambar
     try:
         from PIL import Image
+    except ImportError:
+        logger.error("Pillow (PIL) tidak terinstall di server!")
+        raise HTTPException(status_code=500, detail="Dependensi pemrosesan gambar tidak tersedia di server")
+
+    try:
         contents = await bukti.read()
+        if not contents:
+            raise HTTPException(status_code=400, detail="File gambar kosong atau tidak terbaca")
+
         img = Image.open(BytesIO(contents))
 
         if img.mode in ("RGBA", "P"):
@@ -292,16 +322,34 @@ async def klaim_menemukan_barang(
         # Pastikan folder uploads ada dan writable sebelum simpan
         os.makedirs(UPLOAD_DIR, exist_ok=True)
         try:
-            os.chmod(UPLOAD_DIR, 0o777)
+            os.chmod(UPLOAD_DIR, 0o775)
         except OSError:
             pass
 
+        # Verifikasi bisa tulis sebelum simpan gambar
+        if not _check_upload_dir_writable(UPLOAD_DIR):
+            logger.error(f"Upload dir tidak writable: {UPLOAD_DIR}")
+            raise HTTPException(
+                status_code=500,
+                detail=(
+                    f"Server tidak punya izin tulis ke folder uploads ({UPLOAD_DIR}). "
+                    "Hubungi admin untuk jalankan: "
+                    "sudo chmod 775 backend/uploads && sudo chown -R www:www backend/uploads"
+                )
+            )
+
         filename = f"claim_{report_id}_{current_user.id}_{uuid.uuid4().hex[:8]}.jpg"
         filepath = os.path.join(UPLOAD_DIR, filename)
+        logger.info(f"Menyimpan bukti klaim ke: {filepath}")
         img.save(filepath, "JPEG", quality=75, optimize=True)
+        logger.info(f"Bukti klaim berhasil disimpan: {filename}")
     except PermissionError as e:
+        logger.error(f"Permission error saat menyimpan file: {e}")
         raise HTTPException(status_code=500, detail=f"Server tidak punya izin tulis ke folder uploads: {str(e)}")
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Error saat memproses gambar klaim: {type(e).__name__}: {e}")
         raise HTTPException(status_code=500, detail=f"Gagal memproses gambar: {str(e)}")
 
     claim = crud.create_found_claim(
