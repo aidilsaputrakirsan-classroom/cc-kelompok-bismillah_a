@@ -53,6 +53,8 @@ services:
       DEBUG: "false"
       LOG_LEVEL: WARNING
       CORS_ORIGINS: ${CORS_ORIGINS:-https://yourdomain.com}
+    volumes:
+      - report_uploads:/app/uploads  # ← WAJIB: agar foto bukti persistent di production
     deploy:
       resources:
         limits:
@@ -67,6 +69,11 @@ services:
   # ================================
   frontend:
     restart: always
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost}  # ← Set ini ke domain/IP server kamu di .env
     deploy:
       resources:
         limits:
