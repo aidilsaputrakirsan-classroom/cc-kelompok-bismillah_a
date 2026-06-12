@@ -55,7 +55,7 @@ load_dotenv()
 # Auto-create semua tabel (jika belum ada)
 Base.metadata.create_all(bind=engine)
 
-# Buat folder uploads jika belum ada
+# Buat folder uploads
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 try:
@@ -694,4 +694,4 @@ def hapus_pengguna_oleh_admin(
     if error == "not_found":
         raise HTTPException(status_code=404, detail="User tidak ditemukan")
     if error == "cannot_delete_self":
-        raise HTTPException(status_code=400, detail="Admin tidak bisa menghapus akun sendiri")
+        raise HTTPException(status_code=400, detail="Admin tidak bisa menghapus akun sendiri")
