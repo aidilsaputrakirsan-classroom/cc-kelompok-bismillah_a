@@ -26,22 +26,6 @@ LaporIn ITK mencakup tiga kategori pelaporan utama:
 
 ---
 
-## 📅 Roadmap
-
-| Minggu | Target                 | Status |
-| ------ | ---------------------- | ------ |
-| 1      | Setup & Hello World    | ✅     |
-| 2      | REST API + Database    | ✅     |
-| 3      | React Frontend         | ✅     |
-| 4      | Full-Stack Integration | ✅     |
-| 5-7    | Docker & Compose       | ✅     |
-| 8      | UTS Demo               | ✅     |
-| 9-11   | CI/CD Pipeline         | ✅     |
-| 12-14  | Microservices          | ⬜     |
-| 15-16  | Final & UAS            | ⬜     |
-
----
-
 ## 👥 Tim Pengembang — Kelompok Bismillah_A
 
 | Nama | NIM | Role |
@@ -53,296 +37,205 @@ LaporIn ITK mencakup tiga kategori pelaporan utama:
 
 ---
 
-## 🏗️ Tech Stack
-
-| Teknologi       | Layer      | Fungsi                  | Keterangan                                                                                                                                     |
-| --------------- | ---------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Python 3.12     | Backend    | Bahasa pemrograman      | Bahasa utama yang digunakan untuk membangun logika backend, dipilih karena ekosistemnya yang luas dan kompatibel dengan FastAPI                 |
-| FastAPI         | Backend    | REST API Framework      | Membangun layanan backend berbasis REST API yang menangani logika aplikasi, pengolahan data, dan komunikasi dengan database                     |
-| SQLAlchemy ORM  | Backend    | Object-Relational Mapper | Mengelola interaksi antara kode Python dan database secara lebih terstruktur tanpa perlu menulis query SQL secara langsung                     |
-| PostgreSQL      | Database   | Penyimpanan data        | Menyimpan seluruh data aplikasi secara terstruktur dan relasional                                                                              |
-| React 19        | Frontend   | UI Framework            | Membangun antarmuka pengguna berbasis Single Page Application yang interaktif dan responsif                                                    |
-| Vite            | Frontend   | Build Tool              | Mengelola proses development dan build aplikasi React dengan kecepatan tinggi berkat arsitektur berbasis ES Module                             |
-| React Router    | Frontend   | Client-side Routing     | Mengatur navigasi antar halaman di sisi client tanpa perlu melakukan reload halaman penuh                                                      |
-| Leaflet         | Frontend   | Peta Interaktif         | Menampilkan peta interaktif di antarmuka pengguna, mendukung fitur seperti marker, layer, dan navigasi berbasis lokasi                         |
-| JWT             | Auth       | Autentikasi             | Mengamankan akses ke endpoint dengan sistem token — setiap request dari pengguna yang sudah login wajib menyertakan token yang valid           |
-| Docker          | Container  | Containerization        | Mengemas aplikasi dan seluruh dependensinya ke dalam container sehingga aplikasi dapat berjalan secara konsisten di berbagai environment        |
-
----
-
 ## 🏗️ Architecture
+```mermaid
+flowchart TD
+    USER["User / Browser"] --> GW["API Gateway / Nginx :80"]
 
-```
-[Client / Civitas ITK]
-         |
-      (HTTPS)
-         |
-         v
- [React Frontend (Vite)] <---REST API---> [FastAPI Backend]
-                                            /           \
-                                       (SQL/ORM)     (API/SDK)
-                                          /               \
-                                         v                 v
-                                [PostgreSQL]         [Cloud Storage]
-                              (Data Laporan,       (Penyimpanan File
-                               Akun & Status)       Bukti Insiden)
+    GW --> FE["Frontend :3000"]
+    GW --> AUTH["Auth Service :8001"]
+    GW --> REPORT["Report Service :8002"]
+
+    AUTH --> AUTHDB[("auth-db :5434")]
+    REPORT --> REPORTDB[("report-db :5433")]
+
+    REPORT -. Verify Token .-> AUTH
 ```
 
 ---
 
-## 📁 Struktur Project
+### Architecture Evolution
 
-```
-cc-kelompok-bismillah_a/
-├── backend/
-│   ├── main.py          # FastAPI app & endpoints
-│   ├── models.py        # SQLAlchemy models (11 tabel)
-│   ├── schemas.py       # Pydantic schemas (validasi)
-│   ├── crud.py          # CRUD & business logic
-│   ├── auth.py          # JWT authentication
-│   ├── database.py      # Database connection
-│   ├── requirements.txt
-│   ├── Dockerfile       # Docker config (non-root user + healthcheck)
-│   ├── .env.example
-│   └── .dockerignore
-├── frontend/
-│   └── src/
-│       ├── App.jsx              # Router + route guards
-│       ├── index.css            # Design system (CSS tokens)
-│       ├── components/
-│       │   └── Navbar.jsx
-│       ├── pages/
-│       │   ├── LoginPage.jsx
-│       │   ├── RegisterPage.jsx
-│       │   ├── DashboardPage.jsx
-│       │   ├── BuatLaporanPage.jsx
-│       │   ├── DetailLaporanPage.jsx
-│       │   └── AdminDashboardPage.jsx
-│       └── services/
-│           └── api.js           # Backend communication layer
-├── docs/
-│   ├── api-docs.md              # API documentation
-│   └── docker-cheatsheet.md    # Docker commands reference
-└── README.md
-```
+| Phase | Weeks | Architecture |
+|-------|-------|-------------|
+| Foundation | 1-4 | Monolith (FastAPI + React + PostgreSQL) |
+| Containerization | 5-7 | Docker Compose (3 containers) |
+| CI/CD | 9-11 | GitHub Actions + Railway deployment |
+| Microservices | 12-14 | 2 services + gateway + monitoring |
+| Final | 15-16 | Security hardened + production ready |
 
 ---
 
-## 🚀 Cara Menjalankan
+## 🛠️ Tech Stack
 
-### Prasyarat
-
-#### 1. Python 3.10+
-
-Python digunakan untuk menjalankan backend yang dibangun menggunakan FastAPI. Versi minimal 3.10+ diperlukan karena kompatibel dengan seluruh dependensi modern yang digunakan proyek ini.
-
-Digunakan untuk:
-- Menjalankan server API dengan `uvicorn`
-- Mengelola dependensi menggunakan `pip`
-- Menjalankan seluruh logika backend aplikasi
-
-Tanpa Python, backend tidak dapat dijalankan.
-
-#### 2. Node.js 18+
-
-Node.js digunakan untuk menjalankan frontend berbasis React yang dibangun dengan Vite. Versi minimal 18+ diperlukan karena mendukung fitur JavaScript modern dan kompatibel penuh dengan ekosistem Vite.
-
-Digunakan untuk:
-- Menginstall dependencies frontend dengan `npm install`
-- Menjalankan development server dengan `npm run dev`
-- Mengelola seluruh package yang dibutuhkan frontend
-
-Tanpa Node.js, frontend tidak dapat dijalankan.
-
-#### 3. PostgreSQL 14+
-
-PostgreSQL digunakan sebagai database utama untuk menyimpan seluruh data aplikasi secara terstruktur dan relasional. Versi minimal 14+ direkomendasikan karena lebih stabil dan mendukung fitur JSON yang digunakan oleh beberapa bagian aplikasi.
-
-Digunakan untuk:
-- Menyimpan data laporan, pengguna, dan seluruh entitas aplikasi
-- Menjaga integritas data melalui relasi antar tabel
-- Mendukung query kompleks dari backend via SQLAlchemy ORM
-
-Tanpa PostgreSQL yang berjalan, backend tidak dapat terhubung ke database dan aplikasi tidak akan berfungsi.
-
-#### 4. Docker *(opsional)*
-
-Docker digunakan untuk mengemas backend beserta seluruh dependensinya ke dalam container yang terisolasi. Penggunaan Docker bersifat opsional — aplikasi tetap dapat dijalankan secara manual tanpa Docker.
-
-Digunakan untuk:
-- Menjalankan backend tanpa perlu menginstall Python dan dependensi secara manual
-- Memastikan aplikasi berjalan konsisten di berbagai environment
-- Mempermudah proses deployment ke server
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| Frontend | React + Vite | Single Page Application |
+| Backend | FastAPI (Python) | REST API microservices |
+| Database | PostgreSQL 16 | Relational database (per service) |
+| Gateway | Nginx | Reverse proxy + rate limiting |
+| Container | Docker + Docker Compose | Containerization |
+| CI/CD | GitHub Actions | Automated test + deploy |
+| Cloud | Railway | PaaS deployment |
+| Monitoring | Custom metrics + dashboard | Observability |
 
 ---
 
-## 📖 Quick Start
+## 🚀 Quick Start
+
+### Prerequisites
+- Docker & Docker Compose
+- Git
+
+### Run Locally
 
 ```bash
-# 1. Masuk ke folder backend
-cd backend
+# Clone repository
+# Clone repository
+git clone https://github.com/aidilsaputrakirsan-classroom/cc-kelompok-bismillah_a.git
 
-# 2. Install dependencies Python
-pip install -r requirements.txt
+cd cc-kelompok-bismillah_a
 
-# 3. Salin file konfigurasi dan sesuaikan isinya
+# Copy environment file
 cp .env.example .env
-# Buka .env, lalu sesuaikan nilai DATABASE_URL dengan koneksi PostgreSQL kamu
+# Edit .env with your values
 
-# 4. Buat database di PostgreSQL
-# Jalankan perintah ini di dalam psql:
-# CREATE DATABASE laporin_itk;
+# Start all services
+docker compose up -d
 
-# 5. Jalankan backend (tabel dibuat otomatis saat pertama kali dijalankan)
-uvicorn main:app --reload --port 8000
+# Verify
+docker compose ps
+curl http://localhost/health
+```
 
-# 6. Buka terminal baru, lalu masuk ke folder frontend
+Open http://localhost in your browser.
+
+### Run Without Docker
+
+```bash
+# Backend (Auth Service)
+cd services/auth-service
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8001
+
+# Backend (Report Service)
+cd services/report-service
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8002
+
+# Frontend
 cd frontend
-
-# 7. Install dependencies Node.js
 npm install
-
-# 8. Jalankan frontend development server
 npm run dev
 ```
+---
 
-Setelah kedua server berjalan:
-- **Frontend** dapat diakses di: `http://localhost:5173`
-- **Backend API** dapat diakses di: `http://localhost:8000`
-- **Dokumentasi API (Swagger UI)** dapat diakses di: `http://localhost:8000/docs`
+## 📡 API Documentation
 
-Panduan langkah-langkah yang lengkap untuk menjalankan proyek ini dapat dilihat di [Setup Guide](docs/setup-guide.md).
+### Auth Service
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| POST | `/auth/register` | Registrasi akun pengguna baru | ❌ |
+| POST | `/auth/login` | Login pengguna dan mendapatkan JWT token | ❌ |
+| GET | `/auth/verify` | Verifikasi JWT token untuk komunikasi internal antar-service | ✅ |
+| GET | `/auth/me` | Menampilkan informasi pengguna yang sedang login | ✅ |
+| GET | `/auth/metrics` | Menampilkan metrics Auth Service | ❌ |
+
+> Catatan: Endpoint `/auth/health` hanya tersedia jika health check diimplementasikan pada Auth Service.
 
 ---
 
-### 1. Setup Backend
+### Report Service
 
-```bash
-# Masuk ke folder backend
-cd backend
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Copy konfigurasi
-cp .env.example .env
-# Edit .env sesuaikan DATABASE_URL
-
-# Buat database PostgreSQL
-# Di PostgreSQL: CREATE DATABASE laporin_itk;
-
-# Jalankan backend (tabel otomatis dibuat)
-uvicorn main:app --reload --port 8000
-```
-
-Backend berjalan di: `http://localhost:8000`  
-Swagger UI: `http://localhost:8000/docs`
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| GET | `/reports/health` | Health check Report Service dan koneksi database | ❌ |
+| GET | `/reports/metrics` | Menampilkan metrics Report Service | ❌ |
+| POST | `/reports` | Membuat laporan baru | ✅ |
+| GET | `/reports` | Menampilkan daftar laporan dengan pagination dan filter | ✅ |
+| GET | `/reports/{report_id}` | Menampilkan detail laporan berdasarkan ID | ✅ |
+| PUT | `/admin/reports/{report_id}` | Memperbarui status atau prioritas laporan (Admin) | ✅ |
+| POST | `/reports/{report_id}/comments` | Menambahkan komentar atau balasan pada laporan | ✅ |
+| GET | `/admin/stats` | Menampilkan statistik laporan untuk dashboard admin | ✅ |
+| GET | `/categories` | Menampilkan daftar kategori laporan | ✅ |
+| GET | `/units` | Menampilkan daftar unit penanganan laporan | ✅ |
+| GET | `/notifications` | Menampilkan daftar notifikasi pengguna | ✅ |
+| GET | `/feedback` | Menampilkan data feedback laporan | ✅ |
 
 ---
 
-### 2. Setup Frontend
+### Gateway Access (Nginx)
 
-```bash
-# Masuk ke folder frontend
-cd frontend
-
-# Install node modules
-npm install
-
-# Jalankan development server
-npm run dev
-```
-
-Frontend berjalan di: `http://localhost:5173`
-
----
-
-### 3. Jalankan dengan Docker *(opsional)*
-
-Jika tidak ingin menginstall Python secara manual, backend dapat dijalankan menggunakan Docker. Pastikan PostgreSQL sudah berjalan di host sebelum menjalankan container.
-
-```bash
-# Masuk ke folder backend
-cd backend
-
-# Build Docker image
-docker build -t laporin-backend:v1 .
-
-# Jalankan container (menggunakan konfigurasi dari file .env)
-docker run -d -p 8000:8000 --env-file .env --name laporin-backend laporin-backend:v1
-
-# Cek apakah container berjalan dengan benar
-docker logs laporin-backend
-
-# Verifikasi backend merespons
-curl http://localhost:8000/health
-```
-
-> **Catatan:** Opsi `--env-file .env` memastikan container membaca konfigurasi database dari file `.env` yang sudah disiapkan sebelumnya. Pastikan nilai `DATABASE_URL` di dalam `.env` mengarah ke host PostgreSQL yang aktif.
+| Endpoint Gateway | Service Tujuan | Keterangan |
+|---|---|---|
+| `/health` | Gateway | Health check Gateway |
+| `/auth/*` | Auth Service | Endpoint autentikasi dan manajemen user |
+| `/auth/metrics` | Auth Service | Metrics Auth Service |
+| `/reports/*` | Report Service | Manajemen data laporan |
+| `/reports/health` | Report Service | Health check Report Service |
+| `/reports/metrics` | Report Service | Metrics Report Service |
+| `/categories` | Report Service | Data kategori laporan |
+| `/units` | Report Service | Data unit penanganan |
+| `/notifications` | Report Service | Notifikasi pengguna |
+| `/feedback` | Report Service | Feedback laporan |
+| `/admin/*` | Report Service / Auth Service | Endpoint khusus admin |
 
 ---
 
-## 🔧 Backend
+## 🔐 Keamanan
 
-Backend LaporIn ITK dibangun menggunakan **FastAPI**, framework Python modern yang dirancang khusus untuk membangun REST API yang cepat, ringan, dan mudah didokumentasikan. FastAPI juga menghasilkan dokumentasi interaktif secara otomatis yang dapat diakses melalui Swagger UI di `http://localhost:8000/docs`.
-
-### Sistem Autentikasi
-
-LaporIn ITK menggunakan sistem autentikasi berbasis token untuk menjaga keamanan akses ke seluruh endpoint yang dilindungi:
-
-- **JWT (JSON Web Token)** — setiap pengguna yang berhasil login akan mendapatkan token unik. Token ini wajib disertakan di setiap request ke endpoint yang membutuhkan autentikasi. Tanpa token yang valid, request akan ditolak oleh server.
-- **bcrypt** — digunakan untuk mengenkripsi password sebelum disimpan ke database, sehingga password asli tidak pernah tersimpan dalam bentuk teks biasa meskipun database berhasil diakses oleh pihak yang tidak berwenang.
-
-### Struktur Data
-
-Data utama yang dikelola oleh backend meliputi:
-
-- **Users** — menyimpan data akun pengguna yang terdaftar di sistem
-- **Reports** — menyimpan seluruh laporan yang dibuat pengguna, mencakup kategori laporan (kehilangan barang, kerusakan fasilitas, atau perundungan), deskripsi, titik lokasi, status penanganan, dan waktu pelaporan
-
-### Alur Kerja Backend
-
-```
-Request dari Frontend
-        ↓
-Validasi Token JWT
-        ↓
-Validasi Data Input (Pydantic)
-        ↓
-Proses Logika Bisnis
-        ↓
-Query ke PostgreSQL via SQLAlchemy ORM
-        ↓
-Response JSON dikembalikan ke Frontend
-```
+- **Autentikasi menggunakan JWT** untuk mengamankan akses pengguna setelah melakukan login.
+- **Token memiliki masa berlaku (expiration time)** sehingga akses pengguna dibatasi dalam periode tertentu.
+- **Password disimpan menggunakan hashing bcrypt**, sehingga password tidak disimpan dalam bentuk plain text.
+- **Validasi dan serialisasi data menggunakan Pydantic** agar request dan response sesuai dengan skema yang telah ditentukan.
+- **CORS dikonfigurasi sesuai environment** untuk mengatur akses antara frontend dan backend.
+- **Konfigurasi sensitif menggunakan environment variables**, seperti database URL, JWT secret key, dan konfigurasi lainnya agar tidak ditulis langsung di dalam source code.
+- **Database dipisahkan untuk setiap service**, yaitu `auth-db` untuk `auth-service` dan `report-db` untuk `report-service`, sehingga setiap service memiliki tanggung jawab data yang terpisah.
+- **Gateway Nginx menerapkan pembatasan akses dan routing request** sebagai pintu masuk utama komunikasi antara frontend dan backend.
 
 ---
 
-## 🎨 Frontend
+## 📊 Monitoring
 
-Frontend LaporIn ITK dibangun menggunakan **React 19** dengan **Vite** sebagai build tool, menghadirkan antarmuka yang cepat, responsif, dan mudah digunakan oleh seluruh civitas akademika ITK. Navigasi antar halaman dikelola menggunakan **React Router** tanpa perlu reload halaman penuh.
+- **Structured Logging**  
+  Setiap request dicatat dalam format JSON agar lebih mudah dianalisis. Informasi log meliputi `timestamp`, `level`, `service`, `message`, `method`, `path`, `status_code`, `duration_ms`, dan `correlation_id`.
 
-### Manajemen State
+- **Correlation ID**  
+  Setiap request memiliki identifier unik untuk melakukan request tracing antar service. Correlation ID membantu proses debugging dengan menelusuri perjalanan request dari gateway ke service terkait.
 
-- **React Context API** — digunakan untuk mengelola state autentikasi secara global, sehingga status login pengguna dapat diakses dari seluruh bagian aplikasi tanpa perlu melewatkan data secara manual antar komponen
-- **LocalStorage** — digunakan untuk menyimpan JWT di sisi client, sehingga pengguna tidak perlu login ulang setiap kali membuka atau merefresh aplikasi
-- **Protected Route** — halaman tertentu hanya dapat diakses oleh pengguna yang sudah login. Pengguna yang belum terautentikasi akan diarahkan ke halaman login secara otomatis
+- **Metrics Endpoint**  
+  Service menyediakan endpoint `/metrics` untuk menampilkan data monitoring dalam format Prometheus, seperti jumlah request, jumlah error, latency, dan informasi performa lainnya.
 
-### Alur Integrasi Frontend ke Backend
+- **Health Check**  
+  Endpoint health check digunakan untuk memastikan service dan dependency berjalan dengan baik, seperti koneksi database dan kondisi aplikasi.
 
-```
-Aksi Pengguna (isi form, klik tombol, dll.)
-        ↓
-Axios / Fetch API mengirim HTTP Request ke Backend
-        ↓
-FastAPI memproses request dan query ke database
-        ↓
-Backend mengembalikan Response JSON
-        ↓
-State React diperbarui
-        ↓
-Tampilan UI diperbarui secara otomatis
-```
+- **Circuit Breaker**  
+  `report-service` menggunakan mekanisme circuit breaker ketika berkomunikasi dengan `auth-service`, sehingga dapat mencegah request berulang ke service yang sedang mengalami kegagalan.
+
+- **Retry dan Backoff**  
+  Komunikasi antar-service dilengkapi mekanisme retry dan backoff untuk meningkatkan ketahanan sistem ketika terjadi gangguan sementara pada service lain.
+
+- **Docker Container Monitoring**  
+  Kondisi setiap service dapat dipantau menggunakan `docker compose ps` dan `docker compose logs` untuk memastikan seluruh container berjalan dengan normal.
+
+---
+
+## 📄 Documentation
+
+- [Architecture Guide](docs/architecture.md)
+- [Deployment Guide](docs/deployment-guide.md)
+- [Operations Guide](docs/operations-guide.md)
+- [API Contract](docs/api-contract.md)
+- [Release Notes](docs/release-notes-m3.md)
+- [Dokumentasi hasil testing semua endpoint via Swagger](docs/api-test-results.md)
+- [Dokumentasi UI testing](docs/ui-test-results.md)
+- [Dokumentasi Auth testing](docs/auth-test-results.md)
+- [Docker Cheatsheet](docs/docker-cheatsheet.md)
+- [Setup Guide](docs/setup-guide.md)
+- [Testing Guide](docs/testing-guide.md)
+- [Production Test](docs/production-test.md)
+- [Git Workflow](docs/git-workflow.md)
 
 ---
 
@@ -629,37 +522,6 @@ users → notifications
 
 ---
 
-## 📊 API Endpoints
-
-Lihat dokumentasi lengkap di: [`docs/api-docs.md`](docs/api-docs.md)
-
-| Endpoint | Metode | Akses |
-|----------|--------|-------|
-| `/auth/register` | POST | Public |
-| `/auth/login` | POST | Public |
-| `/categories` | GET | Public |
-| `/reports` | GET, POST | User |
-| `/reports/{id}` | GET | User |
-| `/reports/{id}/comments` | GET, POST | User |
-| `/notifications` | GET | User |
-| `/admin/stats` | GET | Admin |
-| `/admin/reports` | GET | Admin |
-| `/admin/reports/{id}` | PUT | Admin |
-
----
-
-## 🧪 Hasil Testing UI
-
-Lihat laporan lengkap di: [`docs/ui-test-result.md`](docs/ui-test-result.md)
-
-| Kategori | Total Test Case | Pass | Fail | Pass Rate |
-|----------|-----------------|------|------|-----------|
-| UI Pengguna | 46 | 46 | 0 | 100% |
-| UI Admin | 13 | 13 | 0 | 100% |
-| **TOTAL** | **59** | **59** | **0** | **100%** |
-
----
-
 ## 🐳 Docker Cheatsheet
 
 Lihat: [`docs/docker-cheatsheet.md`](docs/docker-cheatsheet.md)
@@ -702,13 +564,15 @@ Jalankan perintah berikut melalui terminal:
 
 6. Buat Pull Request melalui GitHub dan ajukan perubahan untuk direview oleh anggota tim lainnya.
 
+---
+
 ## 🌐 Live Demo
 
 | Service | URL |
 |---------|-----|
-| Frontend | [https://cc-kelompok-strangerthings.akhzafachrozy.my.id](https://cc-kelompok-strangerthings.akhzafachrozy.my.id) |
-| Backend API | |
-| API Docs (Swagger) | |
+| Frontend | [https://cc-kelompok-bismillaha.akhzafachrozy.my.id](https://cc-kelompok-bismillaha.akhzafachrozy.my.id/) |
+
+---
 
 ## 🔄 CI/CD
 
@@ -716,7 +580,23 @@ Pipeline otomatis berjalan saat push ke main:
 1. ✅ Test backend (pytest)
 2. ✅ Test frontend (Vitest)
 3. ✅ Build Docker images
-4. ✅ Deploy ke Railway
+4. ✅ Static analysis dan quality checks
 
+---
 
+## 📅 Roadmap
+
+| Minggu | Target                 | Status |
+| ------ | ---------------------- | ------ |
+| 1      | Setup & Hello World    | ✅     |
+| 2      | REST API + Database    | ✅     |
+| 3      | React Frontend         | ✅     |
+| 4      | Full-Stack Integration | ✅     |
+| 5-7    | Docker & Compose       | ✅     |
+| 8      | UTS Demo               | ✅     |
+| 9-11   | CI/CD Pipeline         | ✅     |
+| 12-14  | Microservices          | ✅     |
+| 15-16  | Final & UAS            | ⬜     |
+
+---
 
