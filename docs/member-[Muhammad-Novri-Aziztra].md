@@ -2,116 +2,14 @@ Nama: Muhammad Novri Aziztra | NIM: 10231066 | Peran: Lead DevOps
 
 ---
 
-# Reflection Paper GÇö Lead DevOps
+# Reflection Paper - Lead DevOps
 
-## 1. Peran dan Lingkup Kerja
+Sebagai Lead DevOps, tanggung jawab saya mencakup seluruh infrastruktur teknis yang memungkinkan aplikasi LAPORin ITK berjalan, mulai dari containerization dengan Docker, konfigurasi CI/CD pipeline di GitHub Actions, setup API Gateway menggunakan Nginx, hingga manajemen environment development dan production. Intinya, saya bertanggung jawab agar code yang ditulis oleh tim backend dan frontend bisa di-build, di-test, dan di-deploy secara otomatis dan konsisten.
 
-Sebagai Lead DevOps, tanggung jawab saya mencakup seluruh infrastruktur teknis yang memungkinkan aplikasi LAPORin ITK berjalan GÇö mulai dari containerization dengan Docker, konfigurasi CI/CD pipeline di GitHub Actions, setup API Gateway menggunakan Nginx, hingga manajemen environment development dan production. Intinya, saya bertanggung jawab agar code yang ditulis oleh tim backend dan frontend bisa di-build, di-test, dan di-deploy secara otomatis dan konsisten.
+Keputusan paling signifikan yang saya ambil adalah mengimplementasikan CI/CD (Continuous Integration / Continuous Deployment) menggunakan GitHub Actions. Pada Milestone 1, seluruh proses build dan deploy dilakukan secara manual, setiap orang menjalankan `docker compose up --build` di lokal masing-masing, dan tidak ada mekanisme untuk memvalidasi apakah code yang di-push ke repository benar-benar bisa berjalan. Saya memilih GitHub Actions karena sudah terintegrasi dengan repository GitHub sehingga tidak perlu setup server CI terpisah seperti Jenkins, gratis untuk repository yang kita pakai, dan menggunakan pendekatan configuration-as-code di mana pipeline didefinisikan dalam file YAML yang ikut di-version control. Pipeline CI yang saya buat terdiri dari 4 jobs: test backend (pytest dengan coverage minimal 50%), test frontend (Vitest dan build), build Docker image, serta notifikasi otomatis ke Pull Request jika ada job yang gagal. Untuk pipeline CD, saya juga menambahkan fitur smart rebuild detection yang menganalisis file mana saja yang berubah dan hanya melakukan rebuild frontend jika perubahan bersifat signifikan.
 
----
+Pada awal project, arsitektur aplikasi bersifat monolith dengan hanya 3 container: frontend, backend, dan 1 database PostgreSQL. Pada Milestone 2, arsitektur berubah menjadi microservices dengan 6 container: auth-db, report-db, auth-service, report-service, frontend, dan gateway. Keputusan ini diambil untuk menerapkan prinsip microservices di mana setiap service memiliki tanggung jawab dan database masing-masing, sehingga bisa dikembangkan dan di-scale secara independen. Meskipun demikian, pada penerapannya sistem tetap menggunakan Monolith karena keterbatasan server hosting. Saya juga membuat pemisahan environment dev dan prod menggunakan 3 file Docker Compose yang saling meng-override, agar developer bisa mengakses database langsung untuk debugging sementara di production port database tidak terekspos demi keamanan.
 
-## 2. Keputusan Teknis Utama
+Kendala terbesar yang saya hadapi adalah ketika migrasi dari arsitektur monolith ke microservices. Setelah berubah ke 6 container, banyak service yang statusnya menjadi unhealthy saat pertama kali dijalankan. Penyebabnya adalah race condition saat startup di mana report-service mencoba connect ke auth-service yang belum selesai startup, health check yang belum tepat sehingga container yang statusnya "running" belum tentu "ready" menerima request, serta dependency chain yang panjang di mana kegagalan satu service di awal chain menyebabkan semua service setelahnya ikut gagal. Solusi yang saya terapkan adalah menambahkan health check di setiap service, menggunakan depends_on dengan condition service_healthy, menambahkan start_period 20 detik pada health check backend, dan mengatur interval, timeout, serta retries yang sesuai untuk masing-masing service.
 
-### 2.1 Implementasi CI/CD Pipeline
-
-Keputusan paling signifikan yang saya ambil adalah mengimplementasikan CI/CD (Continuous Integration / Continuous Deployment) menggunakan GitHub Actions. Pada Milestone 1, seluruh proses build dan deploy dilakukan secara manual GÇö setiap orang menjalankan `docker compose up --build` di lokal masing-masing, dan tidak ada mekanisme untuk memvalidasi apakah code yang di-push ke repository benar-benar bisa berjalan.
-
-Saya memilih GitHub Actions karena beberapa alasan:
-- **Sudah terintegrasi dengan repository GitHub** GÇö tidak perlu setup server CI terpisah seperti Jenkins.
-- **Gratis untuk repository** yang kita pakai, sehingga tidak menambah biaya.
-- **Configuration-as-code** GÇö pipeline didefinisikan dalam file YAML yang ikut di-version control, sehingga perubahan pipeline bisa di-review oleh tim.
-
-Pipeline CI yang saya buat terdiri dari 4 jobs:
-1. **Test Backend** GÇö menjalankan pytest dengan coverage minimal 50%.
-2. **Test Frontend** GÇö menjalankan Vitest dan build frontend.
-3. **Build Docker** GÇö memastikan semua Dockerfile valid dan image bisa di-build.
-4. **Notify Failure** GÇö mengirim komentar otomatis ke Pull Request jika ada job yang gagal.
-
-Untuk pipeline CD, saya menambahkan fitur **smart rebuild detection** GÇö pipeline menganalisis file mana saja yang berubah, dan hanya melakukan rebuild frontend jika perubahan yang terjadi bersifat signifikan (misalnya perubahan pada source code). Jika yang berubah hanya file README atau dokumentasi, pipeline akan skip proses build untuk menghemat waktu deploy.
-
-### 2.2 Migrasi dari Monolith ke Microservices
-
-Pada awal project (Milestone 1), arsitektur aplikasi bersifat monolith GÇö hanya ada 3 container: frontend, backend, dan 1 database PostgreSQL. Semuanya berkomunikasi dalam satu jaringan Docker `laporin_net`, dan frontend langsung mem-proxy request ke backend.
-
-Pada Milestone 2, arsitektur berubah menjadi microservices dengan 6 container:
-- **auth-db** dan **report-db** GÇö 2 database terpisah (database-per-service pattern).
-- **auth-service** GÇö service khusus untuk autentikasi.
-- **report-service** GÇö service khusus untuk manajemen laporan.
-- **frontend** GÇö React app yang di-serve via Nginx.
-- **gateway** GÇö Nginx reverse proxy sebagai API Gateway.
-
-Keputusan ini diambil untuk menerapkan prinsip microservices di mana setiap service memiliki tanggung jawab dan database masing-masing, sehingga bisa dikembangkan dan di-scale secara independen. Meskipun demikian, pada penerapannya sistem tetap menggunakan Monolith karena keterbatasan server hosting
-
-### 2.3 Pemisahan Environment Dev dan Prod
-
-Saya membuat 3 file Docker Compose yang saling meng-override:
-- `docker-compose.yml` GÇö konfigurasi dasar (shared).
-- `docker-compose.dev.yml` GÇö override untuk development: hot-reload, expose port database ke host, resource limits lebih longgar.
-- `docker-compose.prod.yml` GÇö override untuk production: port database tidak di-expose, `restart: always`, log level WARNING, CORS lebih ketat.
-
-Alasannya sederhana: developer butuh akses langsung ke database untuk debugging (via pgAdmin atau DBeaver), tapi di production port database tidak boleh terekspos karena alasan keamanan.
-
----
-
-## 3. Kendala yang Dihadapi
-
-### 3.1 Service Unhealthy Setelah Migrasi ke Microservices
-
-Kendala terbesar yang saya hadapi adalah ketika migrasi dari arsitektur monolith ke microservices. Pada arsitektur monolith, hanya ada 1 backend dan 1 database, sehingga dependency antar container relatif sederhana. Setelah berubah ke microservices dengan 6 container, banyak service yang statusnya menjadi **unhealthy** saat pertama kali di-jalankan.
-
-**Root cause yang saya temukan:**
-
-1. **Race condition saat startup** GÇö `report-service` mencoba connect ke `auth-service` untuk verifikasi token, tapi `auth-service` belum selesai startup. Begitu juga `auth-service` yang membutuhkan `auth-db` untuk sudah ready sebelum bisa menerima request.
-
-2. **Health check yang belum tepat** GÇö Awalnya saya belum menambahkan health check yang proper di setiap service. Container yang statusnya "running" belum tentu benar-benar "ready" untuk menerima request. Ini perbedaan penting yang saya pelajari: **container running Gëá container ready**.
-
-3. **Dependency chain yang panjang** GÇö Di arsitektur microservices, dependency chain menjadi: `auth-db` GåÆ `auth-service` GåÆ `report-db` GåÆ `report-service` GåÆ `frontend` GåÆ `gateway`. Jika satu service di awal chain gagal, semua service setelahnya ikut gagal.
-
-**Solusi yang saya terapkan:**
-
-- Menambahkan **health check** di setiap service menggunakan `pg_isready` untuk database dan HTTP check untuk backend service.
-- Menggunakan **`depends_on` dengan `condition: service_healthy`** GÇö sehingga Docker Compose tidak akan start service downstream sebelum upstream benar-benar healthy.
-- Menambahkan **`start_period: 20s`** pada health check backend GÇö memberikan waktu bagi service untuk inisialisasi sebelum health check mulai dihitung sebagai failure.
-- Mengatur **`interval`, `timeout`, dan `retries`** yang sesuai GÇö database dicek setiap 5 detik dengan 5 retries, sedangkan backend dicek setiap 10 detik dengan 3 retries karena startup time-nya lebih lama.
-
-
----
-
-## 4. Evolusi Infrastruktur: Milestone 1 GåÆ Milestone 2
-
-| Aspek | Milestone 1 | Milestone 2 |
-|-------|-------------|-------------|
-| Arsitektur | Monolith (3 container) | Microservices (6 container) |
-| Database | 1 shared database | Database-per-service (auth_db + report_db) |
-| Deployment | Manual (`docker compose up`) | Otomatis via GitHub Actions CD |
-| Testing | Hanya manual testing | CI pipeline (pytest + Vitest + Docker build) |
-| Git Workflow | Push langsung ke main | Branch protection + PR wajib + code review |
-| Environment | 1 file compose | 3 file compose (base + dev + prod) |
-| Gateway | Frontend langsung proxy ke backend | Nginx API Gateway terpisah |
-| Monitoring | `docker compose logs` manual | Log helper script + health endpoint + metrics |
-| Code Review | Tidak ada | Wajib lewat PR dengan minimal 1 approval |
-
-Perubahan paling berdampak adalah transisi dari manual deployment ke CI/CD otomatis. Developer cukup push code dan membuat PR GÇö pipeline CI akan otomatis menjalankan test, dan setelah merge ke main, pipeline CD akan otomatis deploy ke production.
-
----
-
-## 5. Pelajaran yang Didapat
-
-### 5.1 Container "Running" Bukan Berarti "Ready"
-
-Ini pelajaran paling fundamental dari project ini. Di Docker, sebuah container bisa berstatus "running" meskipun aplikasi di dalamnya belum selesai inisialisasi. Tanpa health check yang proper, Docker Compose akan langsung start service downstream yang bergantung pada container tersebut, menyebabkan failure beruntun.
-
-### 5.2 Microservices Menambah Complexity Secara Signifikan
-
-Dengan 6 container yang saling berkomunikasi, jumlah titik failure meningkat drastis. Setiap koneksi antar service (network, DNS resolution, port mapping, health check, dependency order) adalah potensi masalah. Untuk project dengan skala tim 4 orang, arsitektur monolith sebenarnya jauh lebih sederhana dan efisien. Namun, microservices memberikan pengalaman belajar yang sangat berharga tentang distributed systems.
-
-### 5.3 Environment Development dan Production Selalu Berbeda
-
-Secanggih apapun konfigurasi Docker Compose untuk menyamakan environment, selalu ada perbedaan behaviour antara development dan production. Contoh nyata: error 502 yang tidak pernah muncul di lokal tapi muncul di production karena perbedaan resource constraints dan cold start time. Ini mengajarkan saya pentingnya testing di environment yang mendekati production sebelum deploy.
-
-### 5.4 CI/CD Pipeline yang Bagus Adalah yang "Invisible"
-
-Pipeline terbaik adalah yang tidak membebani developer lain. Mereka cukup push code, membuat PR, dan fokus ke development GÇö validasi dan deployment terjadi secara otomatis di background. Ketika CI gagal, notifikasi dikirim otomatis ke PR. Ketika CD berhasil, summary deploy ditampilkan di GitHub Actions. Developer tidak perlu tahu detail implementasi pipeline.
-
-
----
+Melalui pengerjaan project ini, saya memperoleh beberapa pelajaran penting. Pertama, container yang berstatus "running" belum tentu "ready" menerima request, sehingga health check yang proper menjadi wajib dalam arsitektur microservices. Kedua, microservices menambah complexity secara signifikan karena setiap koneksi antar service adalah potensi masalah, dan untuk project dengan skala tim 4 orang, arsitektur monolith sebenarnya jauh lebih sederhana. Ketiga, environment development dan production selalu memiliki perbedaan behaviour meskipun konfigurasi Docker Compose sudah disamakan. Keempat, CI/CD pipeline yang bagus adalah yang "invisible" di mana developer cukup push code dan membuat PR tanpa perlu tahu detail implementasi pipeline.
