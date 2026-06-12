@@ -43,14 +43,11 @@ services:
   # BACKEND — Hot-reload via uvicorn --reload
   # ================================
   auth-service:
-    ports:
-      - "8001:8001"           # Expose ke host → Swagger: http://localhost:8001/docs
     volumes:
       - ./services/auth-service:/app      # Bind mount untuk live editing
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
     environment:
       DEBUG: "true"
-      ENVIRONMENT: "development"           # Aktifkan Swagger UI
     deploy:
       resources:
         limits:
@@ -58,14 +55,11 @@ services:
           memory: 512M
 
   report-service:
-    ports:
-      - "8002:8002"           # Expose ke host → Swagger: http://localhost:8002/docs
     volumes:
       - ./services/report-service:/app    # Bind mount untuk live editing
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8002", "--reload"]
     environment:
       DEBUG: "true"
-      ENVIRONMENT: "development"           # Aktifkan Swagger UI
     deploy:
       resources:
         limits:
