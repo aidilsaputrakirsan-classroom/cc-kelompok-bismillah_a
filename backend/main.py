@@ -59,9 +59,9 @@ Base.metadata.create_all(bind=engine)
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 try:
-    os.chmod(UPLOAD_DIR, 0o777)  # pastikan writable oleh semua user (termasuk Uvicorn)
+    os.chmod(UPLOAD_DIR, 0o777)  # pastikan writable oleh Uvicorn
 except OSError:
-    pass  # abaikan jika tidak bisa chmod (e.g. sudah writable)
+    pass
 
 app = FastAPI(
     title=settings.APP_TITLE,
@@ -289,9 +289,18 @@ async def klaim_menemukan_barang(
             new_size = (int(img.size[0] * ratio), int(img.size[1] * ratio))
             img = img.resize(new_size, Image.LANCZOS)
 
+        # Pastikan folder uploads ada dan writable sebelum simpan
+        os.makedirs(UPLOAD_DIR, exist_ok=True)
+        try:
+            os.chmod(UPLOAD_DIR, 0o777)
+        except OSError:
+            pass
+
         filename = f"claim_{report_id}_{current_user.id}_{uuid.uuid4().hex[:8]}.jpg"
         filepath = os.path.join(UPLOAD_DIR, filename)
         img.save(filepath, "JPEG", quality=75, optimize=True)
+    except PermissionError as e:
+        raise HTTPException(status_code=500, detail=f"Server tidak punya izin tulis ke folder uploads: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Gagal memproses gambar: {str(e)}")
 
@@ -694,4 +703,4 @@ def hapus_pengguna_oleh_admin(
     if error == "not_found":
         raise HTTPException(status_code=404, detail="User tidak ditemukan")
     if error == "cannot_delete_self":
-        raise HTTPException(status_code=400, detail="Admin tidak bisa menghapus akun sendiri")
+        raise HTTPException(status_code=400, detail="Admin tidak bisa menghapus akun sendiri")
