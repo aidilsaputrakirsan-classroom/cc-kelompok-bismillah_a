@@ -58,6 +58,10 @@ Base.metadata.create_all(bind=engine)
 # Buat folder uploads jika belum ada
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+try:
+    os.chmod(UPLOAD_DIR, 0o777)  # pastikan writable oleh semua user (termasuk Uvicorn)
+except OSError:
+    pass  # abaikan jika tidak bisa chmod (e.g. sudah writable)
 
 app = FastAPI(
     title=settings.APP_TITLE,
