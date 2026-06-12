@@ -161,7 +161,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: http://localhost
+        VITE_API_URL: ${VITE_API_URL:-http://localhost}
     container_name: laporin-frontend
     restart: unless-stopped
     networks:
