@@ -570,7 +570,7 @@ Jalankan perintah berikut melalui terminal:
 
 | Service | URL |
 |---------|-----|
-| Frontend | [https://cc-kelompok-strangerthings.akhzafachrozy.my.id](https://cc-kelompok-strangerthings.akhzafachrozy.my.id) |
+| Frontend | [https://cc-kelompok-bismillaha.akhzafachrozy.my.id](https://cc-kelompok-bismillaha.akhzafachrozy.my.id/) |
 
 ---
 
