@@ -66,9 +66,28 @@ const styles = {
  */
 export default function ReportCard({ report, formatDate, onEdit, onDelete }) {
   const r = report;
+  const pendingClaims = (r.found_claims || []).filter((c) => c.status === "pending").length;
 
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+      {/* Banner klaim penemuan menunggu konfirmasi pemilik */}
+      {pendingClaims > 0 && (
+        <Link
+          to={`/laporan/${r.id}`}
+          style={{
+            display: "flex", alignItems: "center", gap: "0.625rem",
+            padding: "0.75rem 1.5rem", textDecoration: "none",
+            background: "linear-gradient(135deg, #fef3c7 0%, #fffbeb 100%)",
+            borderBottom: "2px solid #f59e0b", color: "#92400e",
+          }}
+        >
+          <span style={{ fontSize: "1.25rem", lineHeight: 1, flexShrink: 0 }}>🔔</span>
+          <span style={{ fontSize: "0.8125rem", fontWeight: 700, flex: 1, lineHeight: 1.4 }}>
+            {pendingClaims} klaim penemuan menunggu konfirmasi Anda — klik untuk meninjau
+          </span>
+          <span style={{ fontSize: "1rem", flexShrink: 0 }}>→</span>
+        </Link>
+      )}
       {/* Clickable area → detail page */}
       <Link
         to={`/laporan/${r.id}`}
