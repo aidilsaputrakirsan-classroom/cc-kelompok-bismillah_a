@@ -4,6 +4,7 @@ Sistem Pelaporan Institut Teknologi Kalimantan
 """
 
 import os
+import tempfile
 import uuid
 from io import BytesIO
 from pathlib import Path
@@ -56,15 +57,8 @@ load_dotenv()
 # Auto-create semua tabel (jika belum ada)
 Base.metadata.create_all(bind=engine)
 
-# Buat folder uploads jika belum ada
-UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-try:
-    os.chmod(UPLOAD_DIR, 0o775)  # pastikan writable oleh Uvicorn
-except OSError:
-    pass
-
-# Verifikasi folder uploads benar-benar writable saat startup
+# ==================== UPLOAD DIRECTORY (RESILIENT) ====================
+# Verifikasi folder uploads benar-benar writable dengan menulis file temp.
 def _check_upload_dir_writable(path: str) -> bool:
     """Test apakah direktori bisa ditulis dengan benar-benar membuat file temp."""
     test_file = os.path.join(path, ".write_test")
@@ -75,6 +69,49 @@ def _check_upload_dir_writable(path: str) -> bool:
         return True
     except (OSError, PermissionError):
         return False
+
+
+def _resolve_upload_dir(candidates: list[str]) -> str:
+    """
+    Pilih direktori upload pertama yang benar-benar writable dari daftar kandidat.
+
+    Untuk tiap kandidat: buat folder (jika perlu), set permission best-effort,
+    lalu tes tulis nyata. Kandidat pertama yang lolos dipakai.
+
+    Ini membuat fitur upload tetap jalan walau folder default (backend/uploads)
+    tidak writable oleh user proses di server (mis. DeployCC dengan owner 'www'),
+    tanpa perlu intervensi SSH/chown manual.
+    """
+    last_path = None
+    for path in candidates:
+        if not path:
+            continue
+        last_path = path
+        try:
+            os.makedirs(path, exist_ok=True)
+        except OSError:
+            continue
+        try:
+            os.chmod(path, 0o775)  # best-effort; abaikan jika bukan owner
+        except OSError:
+            pass
+        if _check_upload_dir_writable(path):
+            return path
+    # Semua kandidat gagal — kembalikan kandidat terakhir agar pesan error informatif.
+    return last_path or os.path.join(tempfile.gettempdir(), "laporin_uploads")
+
+
+# Urutan prioritas:
+#   1. env UPLOAD_DIR  (set admin → path persisten yang writable)
+#   2. backend/uploads (default)
+#   3. <tmp>/laporin_uploads (fallback yang hampir pasti writable)
+_DEFAULT_UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
+_TMP_UPLOAD_DIR = os.path.join(tempfile.gettempdir(), "laporin_uploads")
+UPLOAD_DIR = _resolve_upload_dir([
+    os.getenv("UPLOAD_DIR"),
+    _DEFAULT_UPLOAD_DIR,
+    _TMP_UPLOAD_DIR,
+])
 
 app = FastAPI(
     title=settings.APP_TITLE,
@@ -131,11 +168,17 @@ def startup_event():
 
     # Cek writability folder uploads saat startup
     if _check_upload_dir_writable(UPLOAD_DIR):
-        logger.info(f"✅ Upload dir OK dan writable: {UPLOAD_DIR}")
+        logger.info(f"✅ Upload dir aktif & writable: {UPLOAD_DIR}")
+        if UPLOAD_DIR == _TMP_UPLOAD_DIR:
+            logger.warning(
+                "⚠️  Upload dir memakai folder TEMP (fallback). File bisa hilang saat server reboot. "
+                "Set env UPLOAD_DIR ke path persisten yang writable, atau perbaiki izin backend/uploads."
+            )
     else:
         logger.error(
             f"❌ Upload dir TIDAK writable: {UPLOAD_DIR} — "
-            "Jalankan: sudo chmod 775 backend/uploads && sudo chown -R $USER backend/uploads"
+            "Set env UPLOAD_DIR ke path writable, atau jalankan: "
+            "sudo chmod 775 backend/uploads && sudo chown -R $USER backend/uploads"
         )
 
     db = next(get_db())
@@ -340,24 +383,9 @@ async def klaim_menemukan_barang(
             new_size = (int(img.size[0] * ratio), int(img.size[1] * ratio))
             img = img.resize(new_size, Image.LANCZOS)
 
-        # Pastikan folder uploads ada dan writable sebelum simpan
+        # UPLOAD_DIR sudah diresolusi ke lokasi writable saat startup.
+        # Pastikan folder tetap ada (jaga-jaga bila terhapus saat runtime).
         os.makedirs(UPLOAD_DIR, exist_ok=True)
-        try:
-            os.chmod(UPLOAD_DIR, 0o775)
-        except OSError:
-            pass
-
-        # Verifikasi bisa tulis sebelum simpan gambar
-        if not _check_upload_dir_writable(UPLOAD_DIR):
-            logger.error(f"Upload dir tidak writable: {UPLOAD_DIR}")
-            raise HTTPException(
-                status_code=500,
-                detail=(
-                    f"Server tidak punya izin tulis ke folder uploads ({UPLOAD_DIR}). "
-                    "Hubungi admin untuk jalankan: "
-                    "sudo chmod 775 backend/uploads && sudo chown -R www:www backend/uploads"
-                )
-            )
 
         filename = f"claim_{report_id}_{current_user.id}_{uuid.uuid4().hex[:8]}.jpg"
         filepath = os.path.join(UPLOAD_DIR, filename)
