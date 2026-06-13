@@ -5,6 +5,7 @@ import L from "leaflet";
 import {
   getPublicReport, getUser, claimFoundReport,
   confirmFoundClaim, rejectFoundClaim, markReportFound,
+  getUploadUrl,
 } from "../services/api";
 import { PageLoading } from "../components/LoadingSpinner";
 import EmptyState from "../components/EmptyState";
@@ -29,7 +30,7 @@ const CLAIM_STATUS = {
   rejected: { label: "Ditolak", color: "#ef4444", bg: "#fef2f2" },
 };
 
-const BASE_URL = import.meta.env.VITE_API_URL || "";
+// URL foto upload dibangun via getUploadUrl() dari api.js
 
 export default function DetailKehilanganPage() {
   const { id } = useParams();
@@ -541,14 +542,14 @@ export default function DetailKehilanganPage() {
                     {claim.bukti_url && (
                       <div style={{ marginBottom: "0.5rem" }}>
                         <img
-                          src={`${BASE_URL}${claim.bukti_url}`}
+                          src={getUploadUrl(claim.bukti_url)}
                           alt="Bukti penemuan"
                           style={{
                             maxWidth: "100%", maxHeight: 200, borderRadius: 8,
                             objectFit: "cover", border: "1px solid var(--border)",
                             cursor: "pointer",
                           }}
-                          onClick={() => window.open(`${BASE_URL}${claim.bukti_url}`, "_blank")}
+                          onClick={() => window.open(getUploadUrl(claim.bukti_url), "_blank")}
                         />
                       </div>
                     )}

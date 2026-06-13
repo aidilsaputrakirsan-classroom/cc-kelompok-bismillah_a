@@ -6,9 +6,10 @@ Sistem Pelaporan Institut Teknologi Kalimantan
 import os
 import uuid
 from io import BytesIO
+from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI, Depends, HTTPException, Query, status, UploadFile, File, Form
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.staticfiles import StaticFiles
@@ -98,6 +99,26 @@ app.add_middleware(
 
 # Static files — serve uploaded images
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+
+
+# ==================== SERVE UPLOADED FILES (FALLBACK) ====================
+# Endpoint eksplisit untuk serve file upload — sebagai fallback jika
+# StaticFiles mount tidak terjangkau oleh reverse proxy (e.g. DeployCC nginx).
+# Ini memastikan foto bisa diakses via /api/uploads/filename.jpg
+
+@app.get("/serve-uploads/{filename}", tags=["System"], include_in_schema=False)
+async def serve_uploaded_file(filename: str):
+    """Serve file dari folder uploads secara eksplisit."""
+    # Sanitasi: cegah path traversal
+    safe_name = Path(filename).name
+    filepath = os.path.join(UPLOAD_DIR, safe_name)
+    if not os.path.isfile(filepath):
+        raise HTTPException(status_code=404, detail="File tidak ditemukan")
+    # Auto-detect media type berdasarkan ekstensi
+    ext = Path(safe_name).suffix.lower()
+    media_types = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
+    media_type = media_types.get(ext, "application/octet-stream")
+    return FileResponse(filepath, media_type=media_type)
 
 
 # ==================== STARTUP: SEED DATA ====================
@@ -469,13 +490,43 @@ def detail_laporan(
     if current_user.role != "admin" and report.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Tidak memiliki akses ke laporan ini")
 
-    # Inject bukti_url dan user_nama ke found_claims (karena ORM punya bukti_path bukan bukti_url)
-    for claim in (report.found_claims or []):
-        claim.bukti_url = f"/uploads/{claim.bukti_path}" if claim.bukti_path else None
-        if hasattr(claim, "user") and claim.user:
-            claim.user_nama = claim.user.nama
+    # Konversi ORM → dict agar found_claims punya bukti_url dan user_nama
+    # (Dynamic attribute injection pada SQLAlchemy ORM tidak reliable dengan Pydantic v2)
+    report_dict = {
+        "id": report.id,
+        "user_id": report.user_id,
+        "judul": report.judul,
+        "deskripsi": report.deskripsi,
+        "kategori_id": report.kategori_id,
+        "lokasi": report.lokasi,
+        "latitude": report.latitude,
+        "longitude": report.longitude,
+        "tanggal_kejadian": report.tanggal_kejadian,
+        "status": report.status,
+        "prioritas": report.prioritas,
+        "anonim": report.anonim,
+        "is_sensitive": report.is_sensitive,
+        "created_at": report.created_at,
+        "updated_at": report.updated_at,
+        "category": report.category,
+        "locations": report.locations or [],
+        "attachments": report.attachments or [],
+        "found_claims": [
+            {
+                "id": claim.id,
+                "report_id": claim.report_id,
+                "user_id": claim.user_id,
+                "deskripsi": claim.deskripsi,
+                "bukti_url": f"/uploads/{claim.bukti_path}" if claim.bukti_path else None,
+                "status": claim.status,
+                "created_at": claim.created_at,
+                "user_nama": claim.user.nama if claim.user else None,
+            }
+            for claim in (report.found_claims or [])
+        ],
+    }
 
-    return report
+    return report_dict
 
 
 @app.put("/reports/{report_id}", response_model=ReportResponse, tags=["Laporan"])
