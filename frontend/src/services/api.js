@@ -12,8 +12,31 @@
 
 // Gateway URL — satu pintu masuk untuk semua microservice
 // Development : http://localhost  (Nginx gateway port 80)
-// Production  : https://laporin-gateway.up.railway.app
+// Production  : https://cc-kelompok-bismillaha.akhzafachrozy.my.id
 const BASE_URL = import.meta.env.VITE_API_URL || "";
+
+// URL untuk file statis (foto upload) — selalu strip /api suffix jika ada.
+// FastAPI serve /uploads/ di root, bukan di /api/uploads/.
+// Misal: BASE_URL = "https://domain/api" → STATIC_BASE_URL = "https://domain"
+//        BASE_URL = "https://domain"     → STATIC_BASE_URL = "https://domain"
+export const STATIC_BASE_URL = BASE_URL.replace(/\/api\/?$/, "");
+
+/**
+ * Construct URL untuk mengakses file yang diupload.
+ * Di DeployCC monolith, nginx hanya proxy /api/* ke backend — request langsung
+ * ke /uploads/ mengenai frontend static server → 404.
+ * Solusi: gunakan endpoint /serve-uploads/{filename} yang selalu accessible via API routing.
+ *
+ * @param {string} buktiUrlOrPath - Path dari backend, e.g. "/uploads/claim_2_9_abc.jpg"
+ * @returns {string} Full URL yang bisa diakses browser
+ */
+export function getUploadUrl(buktiUrlOrPath) {
+  if (!buktiUrlOrPath) return "";
+  // Ambil filename saja dari path (e.g. "/uploads/claim_2_9_abc.jpg" → "claim_2_9_abc.jpg")
+  const filename = buktiUrlOrPath.replace(/^\/?(uploads\/)?/, "");
+  // Gunakan endpoint /serve-uploads/ yang merupakan proper API route
+  return `${BASE_URL}/serve-uploads/${filename}`;
+}
 
 // ============================================================
 // EVENT HELPERS — notifikasi ke ServiceStatusContext

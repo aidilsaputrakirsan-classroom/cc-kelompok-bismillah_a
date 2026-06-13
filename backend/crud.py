@@ -233,11 +233,12 @@ def get_reports(
 
 
 def get_report(db: Session, report_id: int) -> Report | None:
-    """Ambil satu laporan berdasarkan ID dengan semua relasi."""
+    """Ambil satu laporan berdasarkan ID dengan semua relasi (termasuk found_claims)."""
     return db.query(Report).options(
         joinedload(Report.category),
         joinedload(Report.locations),
         joinedload(Report.attachments),
+        joinedload(Report.found_claims).joinedload(FoundClaim.user),
     ).filter(Report.id == report_id).first()
 
 

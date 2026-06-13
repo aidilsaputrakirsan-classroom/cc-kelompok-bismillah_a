@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from "react-leaflet";
 import L from "leaflet";
-import { getReport, fetchComments, createComment, submitFeedback, getUser, markReportFound, confirmFoundClaim, rejectFoundClaim } from "../services/api";
+import { getReport, fetchComments, createComment, submitFeedback, getUser, markReportFound, confirmFoundClaim, rejectFoundClaim, getUploadUrl } from "../services/api";
 import { PageLoading } from "../components/LoadingSpinner";
 import EmptyState from "../components/EmptyState";
 import StatusTimeline from "../components/StatusTimeline";
@@ -35,7 +35,7 @@ export default function DetailLaporanPage() {
   const [markFoundLoading, setMarkFoundLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
 
-  const BASE_URL = import.meta.env.VITE_API_URL || "";
+  // Upload URL dibangun via getUploadUrl() dari api.js
 
   const load = async () => {
     setLoading(true);
@@ -364,14 +364,14 @@ export default function DetailLaporanPage() {
                           <div style={{ marginBottom: "0.75rem" }}>
                             <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", marginBottom: "0.375rem" }}>📸 Foto Bukti:</div>
                             <img
-                              src={`${BASE_URL}${claim.bukti_url}`}
+                              src={getUploadUrl(claim.bukti_url)}
                               alt="Bukti penemuan"
                               style={{
                                 maxWidth: "100%", maxHeight: 220, borderRadius: 8,
                                 objectFit: "cover", border: "1px solid var(--border)",
                                 cursor: "pointer", display: "block",
                               }}
-                              onClick={() => window.open(`${BASE_URL}${claim.bukti_url}`, "_blank")}
+                              onClick={() => window.open(getUploadUrl(claim.bukti_url), "_blank")}
                             />
                           </div>
                         )}

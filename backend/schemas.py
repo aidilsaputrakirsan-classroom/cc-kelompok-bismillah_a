@@ -201,6 +201,7 @@ class ReportResponse(BaseModel):
     category: Optional[CategoryResponse] = None
     locations: List[ReportLocationResponse] = []
     attachments: List[ReportAttachmentResponse] = []
+    found_claims: List["FoundClaimResponse"] = []  # klaim penemuan (untuk laporan Kehilangan)
 
     class Config:
         from_attributes = True
@@ -424,6 +425,20 @@ class FoundClaimResponse(BaseModel):
     created_at: datetime
     user_nama: Optional[str] = None
 
+    @classmethod
+    def from_orm_claim(cls, claim) -> "FoundClaimResponse":
+        """Build response dari ORM object, ambil user_nama dari relasi dan konversi bukti_path."""
+        return cls(
+            id=claim.id,
+            report_id=claim.report_id,
+            user_id=claim.user_id,
+            deskripsi=claim.deskripsi,
+            bukti_url=f"/uploads/{claim.bukti_path}" if claim.bukti_path else None,
+            status=claim.status,
+            created_at=claim.created_at,
+            user_nama=claim.user.nama if hasattr(claim, "user") and claim.user else None,
+        )
+
     class Config:
         from_attributes = True
 
@@ -495,3 +510,8 @@ class AdminUserListResponse(BaseModel):
     """Schema untuk response list user admin."""
     total: int
     users: List[AdminUserResponse]
+
+
+# Resolve forward references (FoundClaimResponse dipakai di ReportResponse & PublicReportDetailResponse)
+ReportResponse.model_rebuild()
+PublicReportDetailResponse.model_rebuild()
