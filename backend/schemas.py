@@ -433,7 +433,7 @@ class FoundClaimResponse(BaseModel):
             report_id=claim.report_id,
             user_id=claim.user_id,
             deskripsi=claim.deskripsi,
-            bukti_url=f"/uploads/{claim.bukti_path}" if claim.bukti_path else None,
+            bukti_url=f"/claim-photo/{claim.id}" if (getattr(claim, "bukti_data", None) or claim.bukti_path) else None,
             status=claim.status,
             created_at=claim.created_at,
             user_nama=claim.user.nama if hasattr(claim, "user") and claim.user else None,

@@ -38,6 +38,25 @@ export function getUploadUrl(buktiUrlOrPath) {
   return `${BASE_URL}/serve-uploads/${filename}`;
 }
 
+/**
+ * Construct URL foto bukti klaim penemuan.
+ * Backend mengembalikan bukti_url berupa "/claim-photo/{id}" — route TANPA
+ * ekstensi gambar agar tidak dicegat regex static-file nginx DeployCC
+ * (yang mencegat *.jpg/*.png sebelum sampai ke backend).
+ *
+ * @param {string} buktiUrl - dari backend, e.g. "/claim-photo/12"
+ * @returns {string} Full URL yang bisa diakses browser
+ */
+export function getClaimPhotoUrl(buktiUrl) {
+  if (!buktiUrl) return "";
+  // Sudah berbentuk /claim-photo/{id} → cukup prepend BASE_URL.
+  if (buktiUrl.startsWith("/claim-photo/")) {
+    return `${BASE_URL}${buktiUrl}`;
+  }
+  // Fallback kompatibilitas: bila masih format lama (/uploads/...).
+  return getUploadUrl(buktiUrl);
+}
+
 // ============================================================
 // EVENT HELPERS — notifikasi ke ServiceStatusContext
 // ============================================================

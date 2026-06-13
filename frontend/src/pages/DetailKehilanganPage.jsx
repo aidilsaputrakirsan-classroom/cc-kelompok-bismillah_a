@@ -5,7 +5,7 @@ import L from "leaflet";
 import {
   getPublicReport, getUser, claimFoundReport,
   confirmFoundClaim, rejectFoundClaim, markReportFound,
-  getUploadUrl,
+  getClaimPhotoUrl,
 } from "../services/api";
 import { PageLoading } from "../components/LoadingSpinner";
 import EmptyState from "../components/EmptyState";
@@ -542,14 +542,14 @@ export default function DetailKehilanganPage() {
                     {claim.bukti_url && (
                       <div style={{ marginBottom: "0.5rem" }}>
                         <img
-                          src={getUploadUrl(claim.bukti_url)}
+                          src={getClaimPhotoUrl(claim.bukti_url)}
                           alt="Bukti penemuan"
                           style={{
                             maxWidth: "100%", maxHeight: 200, borderRadius: 8,
                             objectFit: "cover", border: "1px solid var(--border)",
                             cursor: "pointer",
                           }}
-                          onClick={() => window.open(getUploadUrl(claim.bukti_url), "_blank")}
+                          onClick={() => window.open(getClaimPhotoUrl(claim.bukti_url), "_blank")}
                         />
                       </div>
                     )}
