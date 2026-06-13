@@ -468,7 +468,8 @@ jobs:
 
           response_file="/tmp/deploy-response.txt"
 
-          # Fungsi deploy dengan retry manual untuk handle HTTP 524 (Cloudflare timeout)
+          # Fungsi deploy dengan retry manual untuk handle gateway timeout
+          # (Cloudflare 524, serta 504/502/503 dan connection error 000)
           deploy_with_retry() {
             local attempt=1
             local max_attempts=4
@@ -503,7 +504,7 @@ jobs:
               if [ "$http_code" = "200" ]; then
                 echo "✅ Deploy berhasil!"
                 return 0
-              elif [ "$http_code" = "524" ] || [ "$http_code" = "502" ] || [ "$http_code" = "503" ] || [ "$http_code" = "000" ]; then
+              elif [ "$http_code" = "524" ] || [ "$http_code" = "504" ] || [ "$http_code" = "502" ] || [ "$http_code" = "503" ] || [ "$http_code" = "000" ]; then
                 echo "⚠ HTTP $http_code — server mungkin masih memproses di background"
                 if [ $attempt -lt $max_attempts ]; then
                   echo "⏳ Menunggu ${delay}s sebelum retry..."
@@ -513,7 +514,7 @@ jobs:
                   continue
                 fi
               else
-                # HTTP lain (4xx selain 524) → langsung gagal
+                # HTTP lain (mis. 4xx) → langsung gagal, tidak di-retry
                 echo "::error::Deploy gagal dengan HTTP $http_code (tidak akan di-retry)"
                 return 1
               fi
