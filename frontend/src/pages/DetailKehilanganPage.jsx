@@ -38,6 +38,9 @@ export default function DetailKehilanganPage() {
 
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [prevClaimCount, setPrevClaimCount] = useState(0);
+  const [newClaimAlert, setNewClaimAlert] = useState(false);
 
   // Claim form
   const [showClaimForm, setShowClaimForm] = useState(false);
@@ -52,20 +55,39 @@ export default function DetailKehilanganPage() {
   // Confirm/reject
   const [actionLoading, setActionLoading] = useState(null);
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (silent = false) => {
+    if (!silent) setLoading(true);
+    else setRefreshing(true);
     try {
       const data = await getPublicReport(Number(id));
+      // Deteksi klaim baru untuk pemilik laporan
+      if (silent && data) {
+        const newCount = (data.found_claims || []).length;
+        if (newCount > prevClaimCount && prevClaimCount > 0) {
+          setNewClaimAlert(true);
+          setTimeout(() => setNewClaimAlert(false), 8000);
+        }
+        setPrevClaimCount(newCount);
+      } else if (data) {
+        setPrevClaimCount((data.found_claims || []).length);
+      }
       setReport(data);
     } catch (err) {
       console.error(err);
-      setReport(null);
+      if (!silent) setReport(null);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
+      else setRefreshing(false);
     }
   };
 
   useEffect(() => { load(); }, [id]);
+
+  // Auto-polling setiap 30 detik agar pemilik bisa lihat klaim baru tanpa refresh manual
+  useEffect(() => {
+    const interval = setInterval(() => load(true), 30000);
+    return () => clearInterval(interval);
+  }, [id, prevClaimCount]);
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -184,18 +206,60 @@ export default function DetailKehilanganPage() {
     <div className="page">
       <div className="container" style={{ maxWidth: 900, padding: "2rem 1.5rem" }}>
 
-        {/* Back */}
-        <button onClick={() => navigate(-1)} className="btn btn-ghost btn-sm" style={{ marginBottom: "1.5rem" }}>
-          ← Kembali
-        </button>
+        {/* New claim alert banner */}
+        {newClaimAlert && isOwner && (
+          <div style={{
+            background: "linear-gradient(135deg, #7c3aed, #4f46e5)",
+            color: "white",
+            borderRadius: 14,
+            padding: "1rem 1.5rem",
+            marginBottom: "1rem",
+            display: "flex",
+            alignItems: "center",
+            gap: "1rem",
+            animation: "pulse 1s ease-in-out",
+            boxShadow: "0 4px 20px rgba(124,58,237,0.4)",
+          }}>
+            <span style={{ fontSize: "1.75rem" }}>🔔</span>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: "0.9375rem" }}>Ada Klaim Penemuan Baru!</div>
+              <div style={{ fontSize: "0.8125rem", opacity: 0.9 }}>Seseorang baru saja mengklaim menemukan barang Anda. Scroll ke bawah untuk melihat.</div>
+            </div>
+          </div>
+        )}
+
+        {/* Back + Refresh row */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem" }}>
+          <button onClick={() => navigate(-1)} className="btn btn-ghost btn-sm">
+            ← Kembali
+          </button>
+          <button
+            onClick={() => load(true)}
+            disabled={refreshing}
+            className="btn btn-ghost btn-sm"
+            style={{ display: "flex", alignItems: "center", gap: "0.375rem", fontSize: "0.8125rem" }}
+          >
+            <span style={{ display: "inline-block", animation: refreshing ? "spin 1s linear infinite" : "none" }}>🔄</span>
+            {refreshing ? "Memperbarui..." : "Perbarui"}
+          </button>
+        </div>
 
         {/* Header Card */}
         <div className="card" style={{ marginBottom: "1.5rem" }}>
           <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem", marginBottom: "1rem" }}>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center" }}>
               <span className="badge badge-kehilangan">🔍 Kehilangan</span>
               <span className="badge" style={{ background: sc.bg, color: sc.color }}>{sc.icon} {sc.label}</span>
               {isOwner && <span className="badge" style={{ background: "var(--primary)", color: "white" }}>Milik Anda</span>}
+              {isOwner && pendingClaims.length > 0 && (
+                <span className="badge" style={{
+                  background: "#dc2626", color: "white",
+                  animation: "pulse 2s ease-in-out infinite",
+                  fontWeight: 700,
+                }}>
+                  🔔 {pendingClaims.length} Klaim Menunggu!
+                </span>
+              )}
             </div>
             <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
               #{report.id} · {formatDate(report.created_at)}

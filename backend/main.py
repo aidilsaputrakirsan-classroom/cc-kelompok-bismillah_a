@@ -462,12 +462,19 @@ def detail_laporan(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Ambil detail satu laporan."""
+    """Ambil detail satu laporan (termasuk klaim penemuan untuk laporan kehilangan)."""
     report = crud.get_report(db=db, report_id=report_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Laporan {report_id} tidak ditemukan")
     if current_user.role != "admin" and report.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Tidak memiliki akses ke laporan ini")
+
+    # Inject bukti_url dan user_nama ke found_claims (karena ORM punya bukti_path bukan bukti_url)
+    for claim in (report.found_claims or []):
+        claim.bukti_url = f"/uploads/{claim.bukti_path}" if claim.bukti_path else None
+        if hasattr(claim, "user") and claim.user:
+            claim.user_nama = claim.user.nama
+
     return report
 
 
