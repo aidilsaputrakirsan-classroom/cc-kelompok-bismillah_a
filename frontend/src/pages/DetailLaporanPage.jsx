@@ -214,74 +214,20 @@ export default function DetailLaporanPage() {
           </div>
         )}
 
-        {/* Ditemukan Banner */}
-        {report.status === "ditemukan" && (
+        {/* Ditemukan / Selesai Banner */}
+        {(report.status === "ditemukan" || report.status === "selesai") && (
           <div className="card" style={{ marginBottom: "1.5rem", background: "#f5f3ff", border: "2px solid #8b5cf6", textAlign: "center" }}>
             <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🎉</div>
             <h3 style={{ fontWeight: 700, color: "#7c3aed", marginBottom: "0.25rem" }}>Barang Sudah Ditemukan!</h3>
-            <p style={{ fontSize: "0.875rem", color: "var(--text-muted)" }}>Laporan ini telah ditandai sebagai sudah ditemukan.</p>
+            <p style={{ fontSize: "0.875rem", color: "var(--text-muted)" }}>Laporan ini telah ditandai sebagai sudah ditemukan/selesai.</p>
           </div>
         )}
 
-        {/* Map */}
-        {hasMap && (
-          <div className="card-flat" style={{ marginBottom: "1.5rem" }}>
-            <h3 style={{
-              fontSize: "1rem",
-              fontWeight: 700,
-              marginBottom: "1.25rem",
-              paddingBottom: "0.75rem",
-              borderBottom: "1px solid var(--border)",
-            }}>
-              📍 Lokasi Kejadian
-              {report.locations?.length > 0 && (
-                <span style={{ fontSize: "0.8125rem", fontWeight: 400, color: "var(--text-muted)", marginLeft: "0.5rem" }}>
-                  + {report.locations.length} titik tracking
-                </span>
-              )}
-            </h3>
-            <div className="map-container map-container-detail" style={{ height: 300 }}>
-              <MapContainer
-                center={[report.latitude, report.longitude]}
-                zoom={16}
-                style={{ height: "100%", width: "100%" }}
-              >
-                <TileLayer
-                  attribution='&copy; OpenStreetMap'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                <Marker position={[report.latitude, report.longitude]}>
-                  <Popup><strong>Lokasi Kejadian</strong><br />{report.lokasi}</Popup>
-                </Marker>
-                {report.locations?.map((loc) => (
-                  <Marker key={loc.id} position={[loc.latitude, loc.longitude]}>
-                    <Popup>{loc.keterangan || "Titik tracking"}</Popup>
-                  </Marker>
-                ))}
-                {trackingPoints.length > 1 && (
-                  <Polyline positions={trackingPoints} color="#2563eb" weight={3} dashArray="8" />
-                )}
-              </MapContainer>
-            </div>
-          </div>
-        )}
-
-        {/* Comments */}
-        <CommentSection
-          comments={comments}
-          currentUserId={currentUser?.id}
-          newComment={newComment}
-          onNewCommentChange={setNewComment}
-          loading={commentLoading}
-          onSubmit={handleComment}
-          formatDate={formatDate}
-        />
-
-        {/* Found Claims Section — hanya untuk laporan Kehilangan */}
-        {report.category?.nama_kategori?.toLowerCase() === "kehilangan" && (() => {
+        {/* Found Claims Section — tampil bila ada klaim penemuan (tidak bergantung string kategori) */}
+        {(() => {
           const allClaims = report.found_claims || [];
-          const pendingClaims = allClaims.filter(c => c.status === "pending");
           if (allClaims.length === 0) return null;
+          const pendingClaims = allClaims.filter(c => c.status === "pending");
           return (
             <>
               {/* Banner notifikasi klaim pending */}
@@ -308,7 +254,7 @@ export default function DetailLaporanPage() {
                           {i < pendingClaims.length - 1 ? "; " : ". "}
                         </span>
                       ))}
-                      Lihat detail dan konfirmasi di bawah.
+                      Tinjau bukti lalu konfirmasi atau tolak di bawah.
                     </div>
                   </div>
                 </div>
@@ -409,6 +355,60 @@ export default function DetailLaporanPage() {
             </>
           );
         })()}
+
+        {/* Map */}
+        {hasMap && (
+          <div className="card-flat" style={{ marginBottom: "1.5rem" }}>
+            <h3 style={{
+              fontSize: "1rem",
+              fontWeight: 700,
+              marginBottom: "1.25rem",
+              paddingBottom: "0.75rem",
+              borderBottom: "1px solid var(--border)",
+            }}>
+              📍 Lokasi Kejadian
+              {report.locations?.length > 0 && (
+                <span style={{ fontSize: "0.8125rem", fontWeight: 400, color: "var(--text-muted)", marginLeft: "0.5rem" }}>
+                  + {report.locations.length} titik tracking
+                </span>
+              )}
+            </h3>
+            <div className="map-container map-container-detail" style={{ height: 300 }}>
+              <MapContainer
+                center={[report.latitude, report.longitude]}
+                zoom={16}
+                style={{ height: "100%", width: "100%" }}
+              >
+                <TileLayer
+                  attribution='&copy; OpenStreetMap'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                <Marker position={[report.latitude, report.longitude]}>
+                  <Popup><strong>Lokasi Kejadian</strong><br />{report.lokasi}</Popup>
+                </Marker>
+                {report.locations?.map((loc) => (
+                  <Marker key={loc.id} position={[loc.latitude, loc.longitude]}>
+                    <Popup>{loc.keterangan || "Titik tracking"}</Popup>
+                  </Marker>
+                ))}
+                {trackingPoints.length > 1 && (
+                  <Polyline positions={trackingPoints} color="#2563eb" weight={3} dashArray="8" />
+                )}
+              </MapContainer>
+            </div>
+          </div>
+        )}
+
+        {/* Comments */}
+        <CommentSection
+          comments={comments}
+          currentUserId={currentUser?.id}
+          newComment={newComment}
+          onNewCommentChange={setNewComment}
+          loading={commentLoading}
+          onSubmit={handleComment}
+          formatDate={formatDate}
+        />
 
         {/* Feedback (hanya jika selesai) */}
         {report.status === "selesai" && (

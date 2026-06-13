@@ -752,7 +752,7 @@ def confirm_found_claim(
 ) -> tuple:
     """
     Pemilik laporan mengkonfirmasi klaim bahwa barang memang ditemukan.
-    Status klaim → accepted, status laporan → ditemukan.
+    Status klaim → accepted, status laporan → selesai.
     """
     claim = db.query(FoundClaim).filter(
         FoundClaim.id == claim_id,
@@ -780,16 +780,16 @@ def confirm_found_claim(
     for oc in other_claims:
         oc.status = "rejected"
 
-    # Update report status
+    # Update report status → selesai (barang kembali ke pemilik)
     old_status = report.status
-    report.status = "ditemukan"
+    report.status = "selesai"
 
     # Log status change
     log = ReportStatusLog(
         report_id=report_id,
-        status="ditemukan",
+        status="selesai",
         changed_by=owner_id,
-        catatan=f"Barang dikonfirmasi ditemukan oleh user lain (klaim #{claim_id}). Status sebelumnya: '{old_status}'",
+        catatan=f"Barang dikonfirmasi ditemukan oleh user lain (klaim #{claim_id}) — laporan selesai. Status sebelumnya: '{old_status}'",
     )
     db.add(log)
 
@@ -883,14 +883,14 @@ def mark_report_found_by_owner(
         return None, "not_kehilangan"
 
     old_status = report.status
-    report.status = "ditemukan"
+    report.status = "selesai"
 
     # Log
     log = ReportStatusLog(
         report_id=report_id,
-        status="ditemukan",
+        status="selesai",
         changed_by=owner_id,
-        catatan=f"Pemilik menandai barang sudah ditemukan sendiri. Status sebelumnya: '{old_status}'",
+        catatan=f"Pemilik menandai barang sudah ditemukan sendiri — laporan selesai. Status sebelumnya: '{old_status}'",
     )
     db.add(log)
 
