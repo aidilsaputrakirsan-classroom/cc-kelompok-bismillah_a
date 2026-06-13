@@ -670,7 +670,7 @@ def get_public_report(db: Session, report_id: int) -> dict | None:
             "report_id": claim.report_id,
             "user_id": claim.user_id,
             "deskripsi": claim.deskripsi,
-            "bukti_url": f"/uploads/{claim.bukti_path}" if claim.bukti_path else None,
+            "bukti_url": f"/claim-photo/{claim.id}" if (claim.bukti_data or claim.bukti_path) else None,
             "status": claim.status,
             "created_at": claim.created_at,
             "user_nama": claim_user.nama if claim_user else "Anonim",
@@ -713,6 +713,8 @@ def create_found_claim(
     user_id: int,
     deskripsi: str,
     bukti_path: str | None = None,
+    bukti_data: bytes | None = None,
+    bukti_mime: str | None = None,
 ) -> "FoundClaim":
     """User lain mengklaim menemukan barang dengan bukti."""
     claim = FoundClaim(
@@ -720,6 +722,8 @@ def create_found_claim(
         user_id=user_id,
         deskripsi=deskripsi,
         bukti_path=bukti_path,
+        bukti_data=bukti_data,
+        bukti_mime=bukti_mime,
         status="pending",
     )
     db.add(claim)

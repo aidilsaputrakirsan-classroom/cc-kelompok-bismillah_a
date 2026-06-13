@@ -5,7 +5,7 @@ Sistem Pelaporan Institut Teknologi Kalimantan
 
 from sqlalchemy import (
     Column, Integer, String, Float, DateTime, Text,
-    Boolean, Date, ForeignKey
+    Boolean, Date, ForeignKey, LargeBinary
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -236,7 +236,9 @@ class FoundClaim(Base):
     report_id = Column(Integer, ForeignKey("reports.id"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     deskripsi = Column(Text, nullable=False)
-    bukti_path = Column(Text, nullable=True)        # path foto bukti
+    bukti_path = Column(Text, nullable=True)        # path foto bukti (legacy / cadangan disk)
+    bukti_data = Column(LargeBinary, nullable=True)  # isi biner foto (sumber kebenaran)
+    bukti_mime = Column(String(50), nullable=True)   # mis. image/jpeg
     status = Column(String(20), default="pending")   # pending / accepted / rejected
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

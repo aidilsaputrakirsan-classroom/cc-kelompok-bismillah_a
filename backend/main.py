@@ -10,7 +10,7 @@ from io import BytesIO
 from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI, Depends, HTTPException, Query, status, UploadFile, File, Form
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.staticfiles import StaticFiles
@@ -158,13 +158,76 @@ async def serve_uploaded_file(filename: str):
     return FileResponse(filepath, media_type=media_type)
 
 
+# ==================== SERVE CLAIM PHOTO (DARI DATABASE) ====================
+# URL TANPA ekstensi gambar agar tidak dicegat oleh regex static-file nginx
+# DeployCC (yang mencegat semua *.jpg/*.png sebelum sampai ke backend).
+# Sumber kebenaran foto = kolom bukti_data di DB; fallback baca file disk.
+
+@app.get("/claim-photo/{claim_id}", tags=["Kehilangan"], include_in_schema=False)
+def serve_claim_photo(claim_id: int, db: Session = Depends(get_db)):
+    """Serve foto bukti klaim penemuan dari database (fallback ke disk)."""
+    from models import FoundClaim
+    claim = db.query(FoundClaim).filter(FoundClaim.id == claim_id).first()
+    if not claim:
+        raise HTTPException(status_code=404, detail="Klaim tidak ditemukan")
+
+    # 1) Sumber utama: biner di DB
+    if claim.bukti_data:
+        return Response(content=claim.bukti_data, media_type=claim.bukti_mime or "image/jpeg")
+
+    # 2) Fallback: file di disk (klaim lama sebelum migrasi)
+    if claim.bukti_path:
+        safe_name = Path(claim.bukti_path).name
+        filepath = os.path.join(UPLOAD_DIR, safe_name)
+        if os.path.isfile(filepath):
+            ext = Path(safe_name).suffix.lower()
+            media_types = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
+            return FileResponse(filepath, media_type=media_types.get(ext, "application/octet-stream"))
+
+    raise HTTPException(status_code=404, detail="Foto bukti tidak tersedia")
+
+
 # ==================== STARTUP: SEED DATA ====================
+
+def _ensure_found_claim_columns():
+    """
+    Migrasi idempoten: pastikan kolom bukti_data & bukti_mime ada di tabel
+    found_claims. Diperlukan karena app tidak memakai Alembic dan
+    Base.metadata.create_all TIDAK meng-ALTER tabel yang sudah ada.
+
+    PostgreSQL: pakai ADD COLUMN IF NOT EXISTS.
+    SQLite: cek pragma, ADD COLUMN bila belum ada (tabel baru dari create_all
+    sudah berkolom, jadi ini hanya jaga-jaga untuk DB lama).
+    """
+    dialect = engine.dialect.name
+    try:
+        with engine.begin() as conn:
+            if dialect == "postgresql":
+                conn.execute(text(
+                    "ALTER TABLE found_claims ADD COLUMN IF NOT EXISTS bukti_data BYTEA"
+                ))
+                conn.execute(text(
+                    "ALTER TABLE found_claims ADD COLUMN IF NOT EXISTS bukti_mime VARCHAR(50)"
+                ))
+            elif dialect == "sqlite":
+                cols = {row[1] for row in conn.execute(text("PRAGMA table_info(found_claims)"))}
+                if "bukti_data" not in cols:
+                    conn.execute(text("ALTER TABLE found_claims ADD COLUMN bukti_data BLOB"))
+                if "bukti_mime" not in cols:
+                    conn.execute(text("ALTER TABLE found_claims ADD COLUMN bukti_mime VARCHAR(50)"))
+        logger.info("✅ Migrasi kolom found_claims (bukti_data, bukti_mime) OK")
+    except Exception as e:
+        logger.error(f"⚠️  Gagal migrasi kolom found_claims: {type(e).__name__}: {e}")
+
 
 @app.on_event("startup")
 def startup_event():
     """Seed data awal dan log konfigurasi aktif saat startup."""
     logger.info(f"🚀 LaporIn ITK starting up — environment: {settings.ENVIRONMENT}")
     logger.info(f"⚙️  Config: {settings.summary()}")
+
+    # Migrasi kolom foto bukti (idempoten)
+    _ensure_found_claim_columns()
 
     # Cek writability folder uploads saat startup
     if _check_upload_dir_writable(UPLOAD_DIR):
@@ -383,18 +446,21 @@ async def klaim_menemukan_barang(
             new_size = (int(img.size[0] * ratio), int(img.size[1] * ratio))
             img = img.resize(new_size, Image.LANCZOS)
 
-        # UPLOAD_DIR sudah diresolusi ke lokasi writable saat startup.
-        # Pastikan folder tetap ada (jaga-jaga bila terhapus saat runtime).
-        os.makedirs(UPLOAD_DIR, exist_ok=True)
+        # Kompresi ke JPEG dalam memori — ini sumber kebenaran (disimpan ke DB)
+        buf = BytesIO()
+        img.save(buf, "JPEG", quality=75, optimize=True)
+        bukti_bytes = buf.getvalue()
+        bukti_mime = "image/jpeg"
 
+        # Simpan juga ke disk sebagai cadangan (best-effort, tidak fatal bila gagal)
         filename = f"claim_{report_id}_{current_user.id}_{uuid.uuid4().hex[:8]}.jpg"
-        filepath = os.path.join(UPLOAD_DIR, filename)
-        logger.info(f"Menyimpan bukti klaim ke: {filepath}")
-        img.save(filepath, "JPEG", quality=75, optimize=True)
-        logger.info(f"Bukti klaim berhasil disimpan: {filename}")
-    except PermissionError as e:
-        logger.error(f"Permission error saat menyimpan file: {e}")
-        raise HTTPException(status_code=500, detail=f"Server tidak punya izin tulis ke folder uploads: {str(e)}")
+        try:
+            os.makedirs(UPLOAD_DIR, exist_ok=True)
+            with open(os.path.join(UPLOAD_DIR, filename), "wb") as fh:
+                fh.write(bukti_bytes)
+            logger.info(f"Bukti klaim juga disimpan ke disk: {filename}")
+        except Exception as disk_err:
+            logger.warning(f"Gagal simpan bukti ke disk (lanjut pakai DB): {disk_err}")
     except HTTPException:
         raise
     except Exception as e:
@@ -404,10 +470,11 @@ async def klaim_menemukan_barang(
     claim = crud.create_found_claim(
         db=db, report_id=report_id, user_id=current_user.id,
         deskripsi=deskripsi, bukti_path=filename,
+        bukti_data=bukti_bytes, bukti_mime=bukti_mime,
     )
     return {
         "id": claim.id, "report_id": claim.report_id, "user_id": claim.user_id,
-        "deskripsi": claim.deskripsi, "bukti_url": f"/uploads/{filename}",
+        "deskripsi": claim.deskripsi, "bukti_url": f"/claim-photo/{claim.id}",
         "status": claim.status, "created_at": str(claim.created_at),
         "user_nama": current_user.nama,
         "message": "Klaim berhasil dikirim. Menunggu konfirmasi dari pemilik barang.",
@@ -545,7 +612,7 @@ def detail_laporan(
                 "report_id": claim.report_id,
                 "user_id": claim.user_id,
                 "deskripsi": claim.deskripsi,
-                "bukti_url": f"/uploads/{claim.bukti_path}" if claim.bukti_path else None,
+                "bukti_url": f"/claim-photo/{claim.id}" if (claim.bukti_data or claim.bukti_path) else None,
                 "status": claim.status,
                 "created_at": claim.created_at,
                 "user_nama": claim.user.nama if claim.user else None,
