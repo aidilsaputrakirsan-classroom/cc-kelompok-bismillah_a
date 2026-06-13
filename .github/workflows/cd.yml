@@ -352,8 +352,11 @@ jobs:
             export REACT_APP_API_URL="${{ vars.VITE_API_URL }}"
             echo "✓ VITE_API_URL dari repo Variables: $VITE_API_URL"
           else
-            export VITE_API_URL="https://${REPO_SLUG}.akhzafachrozy.my.id/api"
-            export REACT_APP_API_URL="https://${REPO_SLUG}.akhzafachrozy.my.id/api"
+            # PENTING: JANGAN tambahkan /api di sini!
+            # Semua path API sudah punya prefix sendiri (/auth, /reports, /uploads, dll)
+            # Menambahkan /api akan membuat URL foto menjadi /api/uploads/... → 404
+            export VITE_API_URL="https://${REPO_SLUG}.akhzafachrozy.my.id"
+            export REACT_APP_API_URL="https://${REPO_SLUG}.akhzafachrozy.my.id"
             echo "✓ VITE_API_URL auto-generate: $VITE_API_URL"
           fi
 
