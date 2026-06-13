@@ -201,6 +201,7 @@ def get_reports(
         joinedload(Report.category),
         joinedload(Report.locations),
         joinedload(Report.attachments),
+        joinedload(Report.found_claims).joinedload(FoundClaim.user),
     )
 
     if not is_admin and user_id:

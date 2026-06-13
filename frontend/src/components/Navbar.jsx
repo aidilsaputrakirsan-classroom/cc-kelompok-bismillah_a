@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { clearToken, getUser } from "../services/api";
+import { clearToken, getUser, fetchNotifications, markNotificationRead } from "../services/api";
 
 export default function Navbar() {
   const location = useLocation();
@@ -118,6 +118,7 @@ export default function Navbar() {
                   <span className="navbar-user-name">{user.nama?.split(" ")[0]}</span>
                   <span className="navbar-user-role">{user.role === "admin" ? "Admin" : "Pelapor"}</span>
                 </div>
+                <NotificationBell />
                 <DarkModeToggle />
                 <button className="btn btn-ghost btn-sm navbar-logout-btn" onClick={handleLogout} disabled={logoutLoading}>
                   {logoutLoading ? "Keluar..." : "Keluar"}
@@ -133,6 +134,7 @@ export default function Navbar() {
 
             {/* Mobile: only dark toggle + hamburger */}
             <div className="navbar-mobile-actions">
+              {user && <NotificationBell />}
               <DarkModeToggle />
               <button
                 ref={hamburgerRef}
@@ -216,6 +218,185 @@ export default function Navbar() {
         )}
       </div>
     </>
+  );
+}
+
+// ── Notification Bell ──
+function NotificationBell() {
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const panelRef = useRef(null);
+  const btnRef = useRef(null);
+
+  const unreadCount = items.filter((n) => n.status_baca === "unread").length;
+
+  const load = useCallback(async () => {
+    try {
+      const data = await fetchNotifications(false);
+      if (Array.isArray(data)) setItems(data);
+    } catch {
+      // Silent — jangan ganggu navbar bila notifikasi gagal dimuat
+    }
+  }, []);
+
+  // Fetch saat mount + polling tiap 30 detik
+  useEffect(() => {
+    load();
+    const interval = setInterval(load, 30000);
+    return () => clearInterval(interval);
+  }, [load]);
+
+  // Tutup panel saat klik di luar
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (
+        panelRef.current && !panelRef.current.contains(e.target) &&
+        btnRef.current && !btnRef.current.contains(e.target)
+      ) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("touchstart", handleClick);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("touchstart", handleClick);
+    };
+  }, []);
+
+  const toggle = async () => {
+    const next = !open;
+    setOpen(next);
+    if (next) {
+      setLoading(true);
+      await load();
+      setLoading(false);
+    }
+  };
+
+  const handleItemClick = async (notif) => {
+    if (notif.status_baca === "unread") {
+      try {
+        await markNotificationRead(notif.id);
+        setItems((prev) =>
+          prev.map((n) => (n.id === notif.id ? { ...n, status_baca: "read" } : n))
+        );
+      } catch {
+        // Abaikan kegagalan mark-read; tetap navigasi
+      }
+    }
+    setOpen(false);
+    // Notifikasi terkait klaim penemuan → arahkan ke daftar laporan user
+    if (/klaim|menemukan|ditemukan/i.test(notif.pesan || "")) {
+      navigate("/dashboard");
+    }
+  };
+
+  const formatTime = (dt) => {
+    if (!dt) return "";
+    const d = new Date(dt);
+    return d.toLocaleString("id-ID", {
+      day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+    });
+  };
+
+  return (
+    <div style={{ position: "relative" }}>
+      <button
+        ref={btnRef}
+        className="btn btn-ghost btn-sm"
+        onClick={toggle}
+        title="Notifikasi"
+        aria-label={`Notifikasi${unreadCount > 0 ? `, ${unreadCount} belum dibaca` : ""}`}
+        aria-expanded={open}
+        style={{ position: "relative", padding: "0.4rem 0.55rem", fontSize: "1.1rem", lineHeight: 1 }}
+      >
+        🔔
+        {unreadCount > 0 && (
+          <span
+            style={{
+              position: "absolute", top: -2, right: -2,
+              minWidth: 18, height: 18, padding: "0 4px",
+              background: "#ef4444", color: "white",
+              borderRadius: 9, fontSize: "0.65rem", fontWeight: 700,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              boxShadow: "0 0 0 2px var(--bg, #fff)",
+            }}
+          >
+            {unreadCount > 9 ? "9+" : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div
+          ref={panelRef}
+          role="dialog"
+          aria-label="Daftar notifikasi"
+          style={{
+            position: "absolute", right: 0, top: "calc(100% + 8px)",
+            width: 340, maxWidth: "90vw", maxHeight: 420, overflowY: "auto",
+            background: "var(--card-bg, #fff)",
+            border: "1px solid var(--border, #e5e7eb)",
+            borderRadius: 12,
+            boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
+            zIndex: 1000,
+          }}
+        >
+          <div style={{
+            padding: "0.875rem 1rem", borderBottom: "1px solid var(--border, #e5e7eb)",
+            fontWeight: 700, fontSize: "0.9375rem", color: "var(--text-primary)",
+            position: "sticky", top: 0, background: "var(--card-bg, #fff)",
+          }}>
+            🔔 Notifikasi {unreadCount > 0 && `(${unreadCount} baru)`}
+          </div>
+
+          {loading && items.length === 0 ? (
+            <div style={{ padding: "1.5rem 1rem", textAlign: "center", color: "var(--text-muted)", fontSize: "0.875rem" }}>
+              Memuat...
+            </div>
+          ) : items.length === 0 ? (
+            <div style={{ padding: "1.5rem 1rem", textAlign: "center", color: "var(--text-muted)", fontSize: "0.875rem" }}>
+              Belum ada notifikasi.
+            </div>
+          ) : (
+            items.map((n) => (
+              <button
+                key={n.id}
+                onClick={() => handleItemClick(n)}
+                style={{
+                  display: "block", width: "100%", textAlign: "left",
+                  padding: "0.75rem 1rem", border: "none",
+                  borderBottom: "1px solid var(--border, #f1f5f9)",
+                  background: n.status_baca === "unread" ? "rgba(245,158,11,0.08)" : "transparent",
+                  cursor: "pointer",
+                }}
+              >
+                <div style={{
+                  fontSize: "0.8125rem", lineHeight: 1.5,
+                  color: "var(--text-primary)",
+                  fontWeight: n.status_baca === "unread" ? 600 : 400,
+                }}>
+                  {n.status_baca === "unread" && (
+                    <span style={{
+                      display: "inline-block", width: 8, height: 8,
+                      borderRadius: "50%", background: "#ef4444",
+                      marginRight: 6, verticalAlign: "middle",
+                    }} />
+                  )}
+                  {n.pesan}
+                </div>
+                <div style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: 4 }}>
+                  🕐 {formatTime(n.created_at)}
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
