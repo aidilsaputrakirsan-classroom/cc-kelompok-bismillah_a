@@ -10,9 +10,9 @@
  *   - Auth error (503 on /auth/*) → dispatch auth-error event untuk banner global
  */
 
-// Gateway URL — satu pintu masuk untuk semua microservice
-// Development : http://localhost  (Nginx gateway port 80)
-// Production  : https://cc-kelompok-bismillaha.akhzafachrozy.my.id
+// Gateway URL — satu pintu masuk untuk backend API
+// Development : http://localhost      (langsung ke backend)
+// Production  : https://domain/api    (DeployCC nginx proxy /api/* → Uvicorn)
 const BASE_URL = import.meta.env.VITE_API_URL || "";
 
 // URL untuk file statis (foto upload) — selalu strip /api suffix jika ada.
